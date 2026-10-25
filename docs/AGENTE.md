@@ -70,9 +70,10 @@ Para cada torneo/día de `/api/public/accuracy` con `finished=true` que **no fig
 ### Torneos analizados (estimación)
 | Torneo (GUID) | Día | Error fin (min) | Error inicio club (min) | Cambio aplicado |
 | --- | --- | --- | --- | --- |
+| TOP Máster Absoluto (AD5E2B45) y Asturias Vegadeo (E226DFD4) (24-25/10/2026) | sáb-dom | Fin (sin calibrar, a 2 h): TOP Máster dom −33 min; Asturias dom +139 min (a 30 min: −20 / +2). Inicio club a 30 min: sesgo +44 / +25 min | — | Sin cambios de parámetros: `compare.ts` no da mejora ≥ 3 % en ningún candidato. Los 3 días nuevos NO se añadieron a real-days.json porque con ellos la prueba de sesgo previo (`estimateBacktest`, límite 10 min) da 11,6 min; pendiente decidir si se amplía el límite o se corrige el sesgo (propuesta al dueño) |
 | Estella · Viladecans · Utrillas (24/10/2026) | sáb | (no medible: la jornada no se cerraba por partidos fantasma) | — | Arreglado el cierre; 3 días añadidos a real-days.json; parámetros sin cambios (mejora < 3 %) |
 
 ### Ejecuciones con cambios o incidencias
 | Fecha | Qué pasó | Qué se hizo |
 | --- | --- | --- |
-| _(vacío)_ | | |
+| 2026-10-25 | Todo operativo (web, servidor, CORS, noticias). Aviso menor: «Copa Iberdrola de Clubes 2026» da HTTP 404 en un cuadro desde el 23/10 (torneo de septiembre, sin impacto). Las lecturas de TOP Máster seguían a las 22:24 | Solo medición; ver torneos analizados |

@@ -70,9 +70,12 @@ Para cada torneo/día de `/api/public/accuracy` con `finished=true` que **no fig
 ### Torneos analizados (estimación)
 | Torneo (GUID) | Día | Error fin (min) | Error inicio club (min) | Cambio aplicado |
 | --- | --- | --- | --- | --- |
+| TOP Máster Absoluto (AD5E2B45) y Asturias Vegadeo (E226DFD4) (24-25/10/2026) | sáb-dom | Fin (sin calibrar, a 2 h): TOP Máster dom −33 min; Asturias dom +139 min (a 30 min: −20 / +2). Inicio club a 30 min: sesgo +44 / +25 min | — | Sin cambios de parámetros: `compare.ts` no da mejora ≥ 3 % en ningún candidato. Los 3 días nuevos NO se añadieron a real-days.json porque con ellos la prueba de sesgo previo (`estimateBacktest`, límite 10 min) da 11,6 min; pendiente decidir si se amplía el límite o se corrige el sesgo (propuesta al dueño) |
 | Estella · Viladecans · Utrillas (24/10/2026) | sáb | (no medible: la jornada no se cerraba por partidos fantasma) | — | Arreglado el cierre; 3 días añadidos a real-days.json; parámetros sin cambios (mejora < 3 %) |
+| Madrid TOP TTR Guadarrama (99FADBA9, club), Cantabria Liencres (71447D98) y Vitoria (A77711EC) (31/10 y 01/11/2026) | sáb-dom | Fin (sin calibrar, a 1 h / 30 min): Guadarrama −1 / −14; Liencres +81 / +15; Vitoria +60 / −19. Inicio club Guadarrama a 30 min: sesgo +6 min (MAE 17) | — | Sin cambios de parámetros: `compare.ts` (más simulaciones, endQuantile 0,55/0,6, changeoverMin, spread 1,15) no da mejora ≥ 3 % con cota inferior del bootstrap > 0 (spread 1,15: −3,0 % en intervalo pero [−9,6…8,9] y cobertura 84 %). Los 3 días nuevos NO se añadieron a real-days.json (mismo motivo pendiente que la fila anterior: prueba de sesgo previo) |
 
 ### Ejecuciones con cambios o incidencias
 | Fecha | Qué pasó | Qué se hizo |
 | --- | --- | --- |
-| _(vacío)_ | | |
+| 2026-10-25 | Todo operativo (web, servidor, CORS, noticias). Aviso menor: «Copa Iberdrola de Clubes 2026» da HTTP 404 en un cuadro desde el 23/10 (torneo de septiembre, sin impacto). Las lecturas de TOP Máster seguían a las 22:24 | Solo medición; ver torneos analizados |
+| 2026-11-02 | Todo operativo (web, servidor, CORS con Origin de Pages, noticias, Pages/CI en verde). Aviso menor persistente: «Copa Iberdrola de Clubes 2026» sigue con HTTP 404 en un cuadro (reintentos de «draws», sin impacto). Noticia de Guadarrama publicada | Solo medición; ver torneos analizados |

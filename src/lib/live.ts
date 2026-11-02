@@ -163,3 +163,31 @@ export function summarize(t: Tournament, today: string): LiveSummary {
     pending: scheduled.length,
   };
 }
+
+export interface PlayerSchedule {
+  tournament: Tournament;
+  players: { name: string; matches: UvaMatch[] }[];
+}
+
+const startKey = (m: UvaMatch) => m.estimatedStart ?? m.plannedStart ?? `${m.date ?? '9999'}T${m.time ?? '99:99'}`;
+
+/**
+ * A qué hora juega cada jugador de la UVa, torneo por torneo: los partidos de hoy en adelante (los de días ya pasados no), ordenados por hora
+ * (la estimada si la hay; si no, la programada). Un torneo sin partidos de hoy en adelante no sale. Los dobles aparecen bajo cada persona del club.
+ */
+export function playerSchedule(list: Tournament[], today: string): PlayerSchedule[] {
+  const out: PlayerSchedule[] = [];
+  for (const tournament of list) {
+    const upcoming = (tournament.matches ?? []).filter((m) => (m.date ?? today) >= today);
+    if (upcoming.length === 0) continue;
+    const byPlayer = new Map<string, UvaMatch[]>();
+    for (const m of upcoming) for (const name of m.players) byPlayer.set(name, [...(byPlayer.get(name) ?? []), m]);
+    out.push({
+      tournament,
+      players: [...byPlayer]
+        .map(([name, matches]) => ({ name, matches: [...matches].sort((a, b) => startKey(a).localeCompare(startKey(b))) }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'es')),
+    });
+  }
+  return out.sort((a, b) => a.tournament.startDate.localeCompare(b.tournament.startDate) || a.tournament.name.localeCompare(b.tournament.name, 'es'));
+}

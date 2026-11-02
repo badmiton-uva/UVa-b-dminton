@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LiveState, Tournament, UvaMatch } from '../types';
-import { boardOf, lateness, liveTournaments, mergeLive, nextInfo, pickActive, spanText, summarize } from './live';
+import { boardOf, lateness, liveTournaments, mergeLive, nextInfo, pickActive, playerSchedule, spanText, summarize } from './live';
 
 const t = (id: string, startDate: string, city: string, extra: Partial<Tournament> = {}): Tournament => ({ id, name: id, startDate, city, ...extra });
 const m = (id: string, state: UvaMatch['state'], plannedStart?: string, estimatedStart?: string): UvaMatch => ({ id, state, players: ['A'], plannedStart, estimatedStart });
@@ -116,5 +116,30 @@ describe('torneos en directo para Inicio', () => {
     expect(s.playing.map((m) => m.id)).toEqual(['p']);
     expect(s.next.map((m) => m.id)).toEqual(['n1', 'n2']);
     expect([s.finished, s.won, s.lost, s.pending]).toEqual([2, 1, 1, 2]);
+  });
+});
+
+describe('playerSchedule: a qué hora juega cada jugador', () => {
+  const TODAY = '2026-10-24';
+  const mm = (id: string, players: string[], extra: Partial<UvaMatch> = {}): UvaMatch => ({ id, state: 'scheduled', players, date: TODAY, ...extra });
+  it('agrupa por torneo y jugador, ordena por hora estimada (si no, programada) y deja fuera los días pasados', () => {
+    const t: Tournament = { id: 't', name: 'T', startDate: '2026-10-23', city: 'V', liveId: 'g', matches: [
+      mm('a', ['Ana'], { plannedStart: '2026-10-24T08:00:00Z', estimatedStart: '2026-10-24T09:00:00Z' }),
+      mm('b', ['Ana', 'Luis'], { plannedStart: '2026-10-24T08:30:00Z' }),
+      mm('c', ['Luis'], { plannedStart: '2026-10-24T08:00:00Z', estimatedStart: '2026-10-24T10:00:00Z' }),
+      mm('ayer', ['Ana'], { date: '2026-10-23', state: 'finished' }),
+      mm('mañana', ['Ana'], { date: '2026-10-25', plannedStart: '2026-10-25T08:00:00Z' }),
+    ] };
+    const s = playerSchedule([t], TODAY);
+    expect(s).toHaveLength(1);
+    expect(s[0].players.map((p) => p.name)).toEqual(['Ana', 'Luis']);
+    expect(s[0].players[0].matches.map((m) => m.id)).toEqual(['b', 'a', 'mañana']); // b (8:30 oficial) antes que a (9:00 estimada); sin «ayer»
+    expect(s[0].players[1].matches.map((m) => m.id)).toEqual(['b', 'c']); // los dobles salen bajo cada persona
+  });
+  it('un torneo sin partidos de hoy en adelante no sale, y varios torneos salen por fecha', () => {
+    const old: Tournament = { id: 'o', name: 'O', startDate: '2026-10-01', city: 'V', matches: [mm('x', ['Ana'], { date: '2026-10-02' })] };
+    const a: Tournament = { id: 'a', name: 'A', startDate: '2026-10-24', city: 'V', matches: [mm('y', ['Ana'])] };
+    const b: Tournament = { id: 'b', name: 'B', startDate: '2026-10-23', city: 'V', matches: [mm('z', ['Luis'])] };
+    expect(playerSchedule([old, a, b], TODAY).map((x) => x.tournament.id)).toEqual(['b', 'a']);
   });
 });

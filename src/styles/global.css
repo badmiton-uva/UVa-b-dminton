@@ -4016,3 +4016,25 @@ abbr.est--big {
 .lnow__score { margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--gray-200); }
 .lnow__prog { margin: 8px 0 0; font-size: 0.88rem; color: var(--muted); }
 .lnow__more { display: inline-block; margin-top: 10px; font-weight: 700; }
+
+/* ---------- Directo: a qué hora juega cada jugador ---------- */
+.ptimes { margin: 20px 0; }
+.ptimes h2 { margin: 0 0 4px; font-family: var(--font-sport); font-size: 1.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; color: var(--uva-ink); }
+.ptimes__hint { margin: 0 0 12px; font-size: 0.88rem; color: var(--muted); }
+.ptimes__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+.ptimes__card { padding: 14px 16px; background: var(--white); border: 1px solid var(--gray-200); border-top: 5px solid var(--violet); }
+.ptimes__card h3 { margin: 0; font-family: var(--font-sport); font-size: 1.3rem; font-weight: 800; text-transform: uppercase; color: var(--uva-ink); }
+.ptimes__meta { margin: 2px 0 10px; font-size: 0.82rem; color: var(--muted); }
+.ptimes__players, .ptimes__players ul { list-style: none; margin: 0; padding: 0; }
+.ptimes__players > li { padding: 8px 0; border-top: 1px solid var(--gray-200); }
+.ptimes__players h4 { margin: 0 0 4px; font-size: 0.95rem; font-weight: 800; color: var(--uva); }
+.ptimes__match { display: grid; grid-template-columns: 96px 1fr; gap: 2px 10px; align-items: baseline; padding: 4px 0; }
+.ptimes__when { display: grid; font-variant-numeric: tabular-nums; }
+.ptimes__when strong { font-family: var(--font-sport); font-size: 1.35rem; line-height: 1.1; color: var(--uva-ink); }
+.ptimes__when small { font-size: 0.74rem; color: var(--muted); }
+.ptimes__live { color: #e5383b !important; }
+.ptimes__what { font-size: 0.9rem; color: var(--text); }
+.ptimes__result { grid-column: 2; font-size: 0.85rem; font-weight: 700; color: var(--muted); }
+.ptimes__result--win { color: #1f9d55; }
+.ptimes__result--loss { color: #c0392b; }
+.ptimes__match--finished .ptimes__when strong { color: var(--muted); }

@@ -7,6 +7,7 @@ import { EntriesList } from '../components/tournaments/EntriesList';
 import { EndEstimate } from '../components/live/EndEstimate';
 import { MatchCard } from '../components/live/MatchCard';
 import { NextMatch } from '../components/live/NextMatch';
+import { PlayerTimes } from '../components/live/PlayerTimes';
 import { NotifyPanel } from '../components/live/NotifyPanel';
 import { TrajectoryChart } from '../components/live/TrajectoryChart';
 import { Notice, PageHeader } from '../components/ui';
@@ -82,6 +83,8 @@ export function LivePage() {
               Cuando un jugador del club tenga torneo, aparecerá aquí con sus partidos y la hora estimada de fin.
             </Notice>
           )}
+
+          {status === 'ready' && <PlayerTimes tournaments={candidates} today={today} updatedAt={refreshedAt} />}
 
           {active && (
             <>

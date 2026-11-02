@@ -149,9 +149,13 @@ export class SyncEngine {
         continue;
       }
       const phase = tournamentPhase({ startDate: t.start_date, endDate: t.end_date }, today);
-      const iv = intervalsFor(phase);
       // Lo más cercano primero: tras un reinicio, los torneos de esta semana se leen antes que el resto.
       const soonDays = t.start_date ? daysBetween(today, t.start_date) : 99;
+      // Torneo con gente del club en los próximos días: el orden de juego se publica con antelación, así que se lee pronto y a menudo.
+      const nearLinked =
+        (phase === 'soon' || phase === 'imminent') && soonDays <= settings.intervals.dayLookaheadDays &&
+        ((this.db.prepare('select count(*) n from tournament_players where tournament_guid = ?').get(t.guid) as unknown as { n: number }).n > 0);
+      const iv = nearLinked ? { ...intervalsFor(phase), ...(phase === 'imminent' ? settings.intervals.nearImminent : settings.intervals.near) } : intervalsFor(phase);
       const infoDue = t.info_ok_at ? ms(t.info_ok_at) + iv.info : 0;
       // Sin información básica (fechas) no se sabe en qué fase está: se lee ya.
       jobs.push({ key: `info:${t.guid}`, kind: 'info', guid: t.guid, phase, due: infoDue, rank: phase === 'live' ? 2 : 3 });
@@ -169,7 +173,7 @@ export class SyncEngine {
       const drawsEvery = !linked && (phase === 'far' || phase === 'soon') ? Math.max(iv.draws, settings.followRefreshMinutes) : iv.draws;
       // Sin cuadros publicados todavía (torneo futuro): se vuelve a mirar cada 2 h (cada 30 min el día antes), sin contarlo como error.
       const noDrawsAt = !hasDraws ? ms(kvGet<{ at: string }>(this.db, `nodraws:${t.guid}`)?.at) : 0;
-      const noDrawsEvery = phase === 'imminent' ? 30 * 60_000 : 120 * 60_000;
+      const noDrawsEvery = phase === 'imminent' || nearLinked ? 30 * 60_000 : 120 * 60_000;
       jobs.push({ key: `draws:${t.guid}`, kind: 'draws', guid: t.guid, phase, due: noDrawsAt ? noDrawsAt + noDrawsEvery : t.draws_ok_at && hasDraws ? ms(t.draws_ok_at) + drawsEvery : 0, rank: !t.draws_ok_at ? (soonDays <= 7 ? -3 : -1) : phase === 'live' ? 1 : 3 });
 
       // Torneos de los próximos días (30 por defecto): ¿hay inscrita gente del club? Se mira la lista de jugadores aunque aún no haya cuadros.
@@ -182,7 +186,7 @@ export class SyncEngine {
       // Inscripción y admisión de la gente del club en torneos futuros (listas de cada prueba), una prueba por lectura.
       if (linked && this.src.events && this.src.eventEntries && (phase === 'far' || phase === 'soon' || phase === 'imminent') && soonDays <= settings.entries.days) {
         const st = kvGet<EntriesState>(this.db, `entries:${t.guid}`);
-        const every = settings.entries[phase];
+        const every = nearLinked ? Math.min(settings.entries[phase], 30 * 60_000) : settings.entries[phase];
         const inCycle = !!st && st.next < st.events.length;
         jobs.push({ key: `entries:${t.guid}`, kind: 'entries', guid: t.guid, phase, due: inCycle ? 0 : st?.doneAt ? ms(st.doneAt) + every : 0, rank: 4 });
       }
@@ -191,7 +195,7 @@ export class SyncEngine {
         const days: string[] = JSON.parse(t.days_json);
         const wanted =
           phase === 'live' ? days.filter((d) => d === today)
-          : phase === 'soon' ? days.filter((d) => daysBetween(today, d) <= 3) // a más distancia aún no hay orden de juego
+          : phase === 'soon' ? days.filter((d) => daysBetween(today, d) <= (nearLinked ? settings.intervals.dayLookaheadDays : 3)) // sin gente del club, a más de 3 días aún no se busca el orden de juego
           : days;
         for (const date of wanted) {
           const k = `day:${t.guid}:${date}`;

@@ -184,6 +184,10 @@ badminton.es no avisa cuando publica algo, así que el servidor lo detecta con l
 - Arriba de Directo, una tarjeta por torneo (todos los que tienen partidos de hoy en adelante, no solo el seleccionado) y, dentro, cada jugador con sus partidos ordenados por hora: la hora estimada (EST) con la oficial al lado cuando difiere, «desde HH:MM» si hay hora más temprana posible, la pista, el rival, «AHORA» si está en juego y el resultado si ya terminó. Los dobles salen bajo cada persona del club.
 - Se refresca con los datos en directo (cada minuto con partidos hoy, y al avisar el servidor) e indica la hora de la última actualización y la última lectura de cada torneo. Lógica en `src/lib/live.ts › playerSchedule` (días pasados fuera; torneos por fecha).
 
+## Torneos de esta semana: lectura más rápida (02/11/2026)
+- Para un torneo con gente del club que empieza en ≤ 7 días (`DAY_LOOKAHEAD_DAYS`), el orden de juego se lee ya (antes, solo desde 3 días antes) y cada 10 min (`NEAR_DAY_MINUTES`); el día antes, cada 5 min. Cuadros cada 15 y 10 min, información cada 20 y 15, inscripciones cada ≤ 30 min y, si aún no hay cuadros, se mira cada 30 min (antes 2 h). Sin nadie del club el comportamiento es el de siempre. El ritmo sigue respetando ≥ 2,5 s entre peticiones.
+- La web se refresca cada 2 min cuando hay partidos de la UVa pendientes en los próximos 7 días (cada minuto el día de juego, cada 5 min sin nada cerca), y al instante cuando el servidor avisa de un cambio.
+
 ## Cambio de nombre de la cuenta de GitHub (22/10/2026)
 - La cuenta pasó de `Pablo06Casta` a `badmiton-uva`: la web está ahora en https://badmiton-uva.github.io/UVa-b-dminton/ (la dirección antigua da 404) y Web-cerca en https://badmiton-uva.github.io/PABLO-APP/.
 - El servidor autoriza siempre las dos direcciones (`CLUB_ORIGINS` en `server/src/config.ts`); antes solo la antigua y por eso la web nueva no recibía noticias ni datos en vivo.

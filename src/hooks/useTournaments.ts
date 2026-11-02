@@ -28,7 +28,9 @@ type State = { status: 'loading' | 'ready' | 'error'; refreshedAt?: Date; refres
 /** Refresco periódico con servidor: cada 5 minutos (cada minuto si hay partidos hoy), al volver a la pestaña y cuando el servidor avisa. */
 const REFRESH_MS = 5 * 60_000;
 const REFRESH_LIVE_MS = 60_000;
-const todayLocal = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
+/** Con partidos de la UVa en los próximos 7 días (el orden de juego se publica con antelación): cada 2 minutos. */
+const REFRESH_NEAR_MS = 120_000;
+const todayLocal = (plusDays = 0) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date(Date.now() + plusDays * 86_400_000));
 
 /** Fuente única de torneos para Inicio, Calendario y Directo. */
 export function useTournaments(): State {
@@ -38,7 +40,10 @@ export function useTournaments(): State {
   });
   const alive = useRef(true);
   const playingToday = useRef(false);
+  const nearMatches = useRef(false);
   const today = todayLocal();
+  const inAWeek = todayLocal(7);
+  nearMatches.current = state.tournaments.some((t) => (t.matches ?? []).some((m) => m.state !== 'finished' && !!m.date && m.date >= today && m.date <= inAWeek));
   playingToday.current = state.tournaments.some((t) => (t.matches ?? []).some((m) => m.date === today && m.state !== 'finished') || (t.matches ?? []).some((m) => m.state === 'live'));
 
   const load = useCallback(() => {
@@ -60,7 +65,7 @@ export function useTournaments(): State {
     let timer: ReturnType<typeof setTimeout>;
     const tick = () => {
       load();
-      timer = setTimeout(tick, playingToday.current ? REFRESH_LIVE_MS : REFRESH_MS);
+      timer = setTimeout(tick, playingToday.current ? REFRESH_LIVE_MS : nearMatches.current ? REFRESH_NEAR_MS : REFRESH_MS);
     };
     timer = setTimeout(tick, REFRESH_MS);
     const onVisible = () => document.visibilityState === 'visible' && load();
@@ -74,5 +79,5 @@ export function useTournaments(): State {
     };
   }, [load]);
 
-  return { ...state, refreshMs: playingToday.current ? REFRESH_LIVE_MS : REFRESH_MS, reload: load };
+  return { ...state, refreshMs: playingToday.current ? REFRESH_LIVE_MS : nearMatches.current ? REFRESH_NEAR_MS : REFRESH_MS, reload: load };
 }

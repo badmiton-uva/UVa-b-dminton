@@ -28,6 +28,11 @@ export const settings = {
     discovery: min('DISCOVERY_MINUTES', 20),
     before: { info: min('BEFORE_INFO_MINUTES', 60), draws: min('BEFORE_DRAWS_MINUTES', 60), day: min('BEFORE_DAY_MINUTES', 60) },
     imminent: { info: min('IMMINENT_INFO_MINUTES', 20), draws: min('IMMINENT_DRAWS_MINUTES', 20), day: min('IMMINENT_DAY_MINUTES', 20) },
+    /** Torneos con gente del club que empiezan en ≤ 7 días (y el día antes): el orden de juego se lee pronto y a menudo, porque se publica con días de antelación. */
+    near: { info: min('NEAR_INFO_MINUTES', 20), draws: min('NEAR_DRAWS_MINUTES', 15), day: min('NEAR_DAY_MINUTES', 10) },
+    nearImminent: { info: min('NEAR_IMMINENT_INFO_MINUTES', 15), draws: min('NEAR_IMMINENT_DRAWS_MINUTES', 10), day: min('NEAR_IMMINENT_DAY_MINUTES', 5) },
+    /** Hasta cuántos días antes se lee el orden de juego de un torneo con gente del club (antes, 3). */
+    dayLookaheadDays: num('DAY_LOOKAHEAD_DAYS', 7),
     live: { info: min('LIVE_INFO_MINUTES', 20), draws: min('LIVE_DRAWS_MINUTES', 10), day: min('LIVE_DAY_MINUTES', 3) },
     recent: { info: min('RECENT_INFO_MINUTES', 720), draws: min('RECENT_DRAWS_MINUTES', 60), day: min('RECENT_DAY_MINUTES', 180) },
   },

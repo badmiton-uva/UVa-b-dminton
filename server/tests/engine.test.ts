@@ -150,18 +150,52 @@ describe('planificación y ciclo completo', () => {
 });
 
 describe('próximos partidos antes del torneo', () => {
-  it('mira el orden de juego desde 3 días antes, cada hora, y no antes', async () => {
+  it('mira el orden de juego desde 7 días antes si hay gente del club (si no, desde 3) y no antes', async () => {
     const db = memDb();
     const src = new FakeSource(); // torneo el 2026-11-07
     createPlayer(db, { name: 'Ana Prueba', profile: PROFILE });
     const e = new SyncEngine(db, src);
     for (let i = 0; i < 4; i++) await e.tick(new Date('2026-10-20T10:00:00+02:00'));
     const at = (iso: string) => e.plan(new Date(iso)).map((j) => j.kind);
-    expect(at('2026-10-31T10:00:00+01:00')).not.toContain('day'); // faltan 7 días
+    expect(at('2026-10-29T10:00:00+01:00')).not.toContain('day'); // faltan 9 días
     expect(at('2026-11-04T10:00:00+01:00')).toContain('day'); // faltan 3 días
   });
 });
 
+describe('torneos de esta semana con gente del club', () => {
+  const setup = async (linked: boolean) => {
+    const db = memDb();
+    const src = new FakeSource(); // torneo el 2026-11-07
+    const p = createPlayer(db, { name: 'Ana Prueba', profile: PROFILE });
+    const e = new SyncEngine(db, src);
+    for (let i = 0; i < 6; i++) await e.tick(new Date('2026-11-02T10:00:00+01:00'));
+    if (linked) db.prepare('insert or ignore into tournament_players(tournament_guid, player_id) values(?, ?)').run(GUID, p.id);
+    else db.prepare('delete from tournament_players').run();
+    return { db, e };
+  };
+
+  it('con alguien del club, el orden de juego se lee ya a 5 días del torneo; sin nadie del club, no', async () => {
+    const withClub = await setup(true);
+    const without = await setup(false);
+    const at = (e: SyncEngine, iso: string) => e.plan(new Date(iso)).map((j) => j.kind);
+    expect(at(withClub.e, '2026-11-02T12:00:00+01:00')).toContain('day');
+    expect(at(without.e, '2026-11-02T12:00:00+01:00')).not.toContain('day');
+  });
+
+  it('se vuelve a leer cada 10 min (cada 5 el día antes), no cada hora', async () => {
+    const { db, e } = await setup(true);
+    const guid = GUID;
+    const key = `day:${guid}:2026-11-07`;
+    const mark = (iso: string) => db.prepare("insert into kv(k, v, updated_at) values(?,?,?) on conflict(k) do update set v = excluded.v").run(`ok:${key}`, JSON.stringify({ at: iso }), iso);
+    mark('2026-11-02T12:00:00+01:00');
+    const due = (iso: string) => e.plan(new Date(iso)).some((j) => j.key === key);
+    expect(due('2026-11-02T12:05:00+01:00')).toBe(false);
+    expect(due('2026-11-02T12:11:00+01:00')).toBe(true); // 10 min después
+    mark('2026-11-06T12:00:00+01:00');
+    expect(due('2026-11-06T12:04:00+01:00')).toBe(false);
+    expect(due('2026-11-06T12:06:00+01:00')).toBe(true); // el día antes, 5 min
+  });
+});
 
 describe('torneos excluidos', () => {
   it('«Liga Nacional» no se lee ni se muestra', async () => {

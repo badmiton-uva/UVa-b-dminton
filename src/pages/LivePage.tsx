@@ -62,7 +62,7 @@ export function LivePage() {
 
           {status === 'ready' && hasApi && (
             <p className="live__stamp" aria-live="polite">
-              Se actualiza cada {refreshMs >= 300_000 ? '5 minutos' : 'minuto'} · Comprobado en esta pantalla a las {refreshedAt ? clockSec(refreshedAt) : '—'}
+              Se actualiza cada {refreshMs >= 300_000 ? '5 minutos' : refreshMs >= 120_000 ? '2 minutos' : 'minuto'} · Comprobado en esta pantalla a las {refreshedAt ? clockSec(refreshedAt) : '—'}
             </p>
           )}
 

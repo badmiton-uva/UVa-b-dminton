@@ -98,8 +98,8 @@ function sectionFor(state: PublicState, d: Due, today: string): Section[] {
 }
 
 /** El correo de una persona con todo lo que le toca ahora (uno o varios torneos, a media jornada o al final). */
-export function buildEmail(state: PublicState, due: Due[], unsub: string, followed: string, today: string): { subject: string; text: string; html: string } {
-  const sections = due.flatMap((d) => sectionFor(state, d, today));
+export function buildEmail(state: PublicState, due: Due[], unsub: string, followed: string, today: string, alerts: { t: PublicTournament; a: Alert }[] = []): { subject: string; text: string; html: string } {
+  const sections = [...alerts.map((x) => ({ title: `★ ${x.a.title}`, lines: x.a.lines })), ...due.flatMap((d) => sectionFor(state, d, today))];
   const onlyMid = due.every((d) => d.kind === 'mid');
   const onlyFinal = due.every((d) => d.kind === 'final');
   const first = due[0].t.name;
@@ -110,8 +110,49 @@ export function buildEmail(state: PublicState, due: Due[], unsub: string, follow
   return { subject, text, html };
 }
 
+/** Algo importante de una persona que sigue: quedó eliminada, llega a la final o ganó/quedó en el podio de una prueba. */
+export interface Alert { key: string; name: string; event: string; kind: 'out' | 'final' | 'gold' | 'silver' | 'bronze'; title: string; lines: string[] }
+
+/**
+ * Hechos importantes de una persona en un torneo en juego (no cada partido): ya no juega más en una prueba (`done` y sin medalla: «Cae en Octavos»),
+ * está en la final, o tiene medalla (campeona, finalista, bronce). Cada hecho se avisa una sola vez (clave estable).
+ */
+export function keyEvents(t: PublicTournament, name: string, today: string): Alert[] {
+  const out: Alert[] = [];
+  const mine = t.results.filter((r) => r.entrant.split(/\s+\/\s+/).includes(name));
+  const matches = t.matches.filter((m) => m.players.includes(name));
+  for (const r of mine) {
+    const ev = eventName(r.event);
+    const base = r.event.slice(0, 2);
+    const inEvent = (m: PublicMatch) => (m.event ?? '').toUpperCase().startsWith(base.toUpperCase());
+    const mk = (kind: Alert['kind'], title: string, lines: string[]): Alert => ({ key: `alert:${r.event}:${name}:${kind}`, name, event: ev, kind, title, lines });
+    if (r.place === 1) out.push(mk('gold', `¡${name} gana ${ev}!`, [`🥇 ¡Campeón${/\s\/\s/.test(r.entrant) ? 'es' : ''} de ${ev}!${r.score ? ` Final: ${r.score}` : ''}`]));
+    else if (r.place === 2) out.push(mk('silver', `${name}, finalista en ${ev}`, [`🥈 Subcampeón en ${ev}${r.score ? ` (final ${r.score})` : ''}`]));
+    else if (r.place === 3) out.push(mk('bronze', `${name}, bronce en ${ev}`, [`🥉 Bronce en ${ev}`]));
+    else if (r.done) {
+      const last = [...matches].filter((m) => m.state === 'finished' && m.outcome === 'loss' && inEvent(m)).sort((a, b) => startKey(b).localeCompare(startKey(a)))[0];
+      out.push(mk('out', `${name} queda eliminado en ${ev}`, [`❌ ${ev}: ${r.text}`, ...(last ? [`Último partido: perdió${vs(last)} (${last.score ?? 'sin marcador'})`] : []), 'Ya no tiene más partidos en esta prueba.']));
+    } else if (/final/i.test(r.text) && !/semifinal|cuartos|octavos|grupo/i.test(r.text.replace(/pasa a final/i, ''))) {
+      const next = matches.filter((m) => m.state !== 'finished' && inEvent(m) && /final/i.test(m.event ?? '')).sort((a, b) => startKey(a).localeCompare(startKey(b)))[0];
+      out.push(mk('final', `¡${name} llega a la final de ${ev}!`, [`🏸 ${name} juega la final de ${ev}.`, ...(next ? [`Siguiente: ${when(next, today)}${vs(next)}${next.court ? ` · Pista ${next.court}` : ''}`] : [])]));
+    }
+  }
+  return out;
+}
+
+/** Correo de uno o varios hechos importantes (sin el resumen del torneo): corto y directo. */
+export function buildAlertEmail(alerts: { t: PublicTournament; a: Alert }[], unsub: string, followed: string): { subject: string; text: string; html: string } {
+  const subject = alerts.length === 1 ? alerts[0].a.title : `Novedades importantes: ${[...new Set(alerts.map((x) => x.a.name.split(' ').slice(0, 2).join(' ')))].join(', ')}`;
+  const sections = alerts.map((x) => ({ title: `${x.a.title} · ${x.t.name}`, lines: x.a.lines }));
+  const text = `Para ti: ${followed}\n\n${sections.map((s) => `${s.title.toUpperCase()}\n${s.lines.map((l) => `   ${l}`).join('\n')}`).join('\n\n')}\n\nEn directo: ${site()}/directo\n\nRecibes este correo porque sigues a este jugador en la web del Club Bádminton Universidad de Valladolid (solo avisamos de lo importante: eliminado, final o podio). Para darte de baja: ${unsub}\n`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#14132f"><p style="color:#566072;margin-bottom:4px">Para ti: ${escapeHtml(followed)}</p>${sections.map((s) => `<h2 style="color:#2f2c64;margin:18px 0 4px">${escapeHtml(s.title)}</h2><ul style="padding-left:18px;margin:4px 0">${s.lines.map((l) => `<li style="margin:4px 0">${escapeHtml(l)}</li>`).join('')}</ul>`).join('')}<p><a href="${site()}/directo" style="display:inline-block;background:#2f2c64;color:#fff;padding:10px 18px;text-decoration:none;border-radius:4px">Ver en directo</a></p><p style="font-size:12px;color:#566072">Recibes este correo porque sigues a este jugador en la web del Club Bádminton Universidad de Valladolid (solo avisamos de lo importante: eliminado, final o podio). <a href="${unsub}">Darme de baja</a></p></div>`;
+  return { subject, text, html };
+}
+
 const madridHour = (now: Date) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', hour12: false }).format(now)) % 24;
-const sentToday = (db: Db, id: number, today: string) => (db.prepare("select count(*) n from subscriber_mails where subscriber_id = ? and substr(sent_at, 1, 10) = ?").get(id, today) as unknown as { n: number }).n;
+const sentToday = (db: Db, id: number, today: string) => (db.prepare("select count(*) n from subscriber_mails where subscriber_id = ? and kind not like 'alert:%' and substr(sent_at, 1, 10) = ?").get(id, today) as unknown as { n: number }).n;
+const alertsToday = (db: Db, id: number, today: string) => (db.prepare("select count(distinct substr(sent_at, 1, 16)) n from subscriber_mails where subscriber_id = ? and kind like 'alert:%' and substr(sent_at, 1, 10) = ?").get(id, today) as unknown as { n: number }).n;
+const alreadySentKey = (db: Db, id: number, guid: string, key: string) => !!db.prepare('select 1 x from subscriber_mails where subscriber_id = ? and tournament_guid = ? and kind = ?').get(id, guid, key);
 const alreadySent = (db: Db, id: number, guid: string, kind: Kind) => !!db.prepare('select 1 x from subscriber_mails where subscriber_id = ? and tournament_guid = ? and kind = ?').get(id, guid, kind);
 
 /**
@@ -125,7 +166,8 @@ export async function sendUpdates(db: Db, state: PublicState, now: Date, mailer:
   const today = todayIn(TZ, now);
   const mid = state.tournaments.filter((t) => midDue(t, today));
   const fin = state.tournaments.filter((t) => finished(t, today) && t.matches.some((m) => m.state === 'finished'));
-  if (mid.length === 0 && fin.length === 0) return 0;
+  const playing = state.tournaments.some((t) => !!t.startDate && t.startDate <= today && !finished(t, today) && t.results.length > 0);
+  if (mid.length === 0 && fin.length === 0 && !playing) return 0;
   let sent = 0;
   for (const sub of listConfirmed(db)) {
     if (sent >= 25) break;
@@ -140,10 +182,18 @@ export async function sendUpdates(db: Db, state: PublicState, now: Date, mailer:
       const names = followedIn(state, sub, t);
       if (names.length && joined <= (t.endDate ?? t.startDate ?? '') && !alreadySent(db, sub.id, t.id, 'final')) due.push({ t, kind: 'final', names });
     }
-    if (due.length === 0) continue;
+    // Hechos importantes (eliminado, final, campeón…) de los jugadores que sigue, mientras el torneo está en juego; los de un torneo que ya terminó van en el correo final.
+    const alerts: { t: PublicTournament; a: Alert }[] = [];
+    if (!sub.allTeam && alertsToday(db, sub.id, today) < settings.subscriptions.maxAlertsPerDay) {
+      for (const t of state.tournaments) {
+        if (finished(t, today) || !t.startDate || t.startDate > today || joined >= t.startDate || due.some((d) => d.t.id === t.id && d.kind === 'final')) continue;
+        for (const n of followedIn(state, sub, t)) for (const a of keyEvents(t, n, today)) if (!alreadySentKey(db, sub.id, t.id, a.key)) alerts.push({ t, a });
+      }
+    }
+    if (due.length === 0 && alerts.length === 0) continue;
     const unsub = unsubscribeUrl(db, sub.id);
-    const followed = sub.allTeam ? 'todo el equipo' : [...new Set(due.flatMap((d) => d.names))].join(', ');
-    const mail = buildEmail(state, due, unsub, followed, today);
+    const followed = sub.allTeam ? 'todo el equipo' : [...new Set([...due.flatMap((d) => d.names), ...alerts.map((x) => x.a.name)])].join(', ');
+    const mail = due.length ? buildEmail(state, due, unsub, followed, today, alerts) : buildAlertEmail(alerts, unsub, followed);
     try {
       await mailer.send({ to: sub.email, ...mail, headers: { 'List-Unsubscribe': `<${unsub}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } });
     } catch (e) {
@@ -152,6 +202,7 @@ export async function sendUpdates(db: Db, state: PublicState, now: Date, mailer:
     }
     const mark = db.prepare('insert or ignore into subscriber_mails(subscriber_id, tournament_guid, kind, sent_at) values(?,?,?,?)');
     for (const d of due) mark.run(sub.id, d.t.id, d.kind, now.toISOString());
+    for (const x of alerts) mark.run(sub.id, x.t.id, x.a.key, now.toISOString());
     sent++;
   }
   return sent;

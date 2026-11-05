@@ -140,6 +140,8 @@ export const settings = {
   subscriptions: {
     max: num(process.env.SUBSCRIBERS_MAX, 3000),
     maxPerDay: num(process.env.SUBSCRIBER_MAILS_PER_DAY, 2),
+    /** Avisos de hechos importantes (eliminado, final, podio) a quien sigue a jugadores concretos: máximo de correos distintos al día, aparte de los dos del torneo. */
+    maxAlertsPerDay: num(process.env.SUBSCRIBER_ALERTS_PER_DAY, 3),
     cooldownMin: num(process.env.SUBSCRIBE_COOLDOWN_MINUTES, 10),
   },
   /** Limita las consultas a la API pública por IP y minuto. */

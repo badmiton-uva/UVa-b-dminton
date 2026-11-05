@@ -297,7 +297,7 @@ export function createApp(db: Db, engine: SyncEngine | undefined, hub: Hub, mail
         for await (const _ of req) void _; // se descarta el cuerpo (los clientes de correo envían «List-Unsubscribe=One-Click»)
         if (sub[1] === 'confirmar') {
           const ok = Number.isInteger(id) && confirmSubscription(db, id, token);
-          return ok ? page('¡Suscripción confirmada!', `<p>Gracias. En cada torneo en el que jueguen los jugadores que has elegido recibirás, como mucho, dos correos: uno a media jornada, con cómo van, contra quién juegan y si ganan, y otro al final con los resultados. Cada correo lleva un enlace para darte de baja.</p>${back}`) : page('Enlace no válido', '<p>Este enlace no es válido o ya se usó. Puedes volver a suscribirte desde la web del club.</p>' + back, 400);
+          return ok ? page('¡Suscripción confirmada!', `<p>Gracias. En cada torneo en el que jueguen los jugadores que has elegido recibirás un correo a media jornada (cómo van, contra quién juegan y si ganan) y otro al final con los resultados; si sigues a un jugador concreto, también un aviso cuando pase algo importante (queda eliminado, llega a la final o gana). Nunca un correo por partido. Cada correo lleva un enlace para darte de baja.</p>${back}`) : page('Enlace no válido', '<p>Este enlace no es válido o ya se usó. Puedes volver a suscribirte desde la web del club.</p>' + back, 400);
         }
         const gone = Number.isInteger(id) && unsubscribeEmail(db, id, token);
         return gone ? page('Te has dado de baja', `<p>Hecho: no recibirás más correos y tu dirección se ha borrado.</p>${back}`) : page('Enlace no válido', '<p>Este enlace no es válido o ya te habías dado de baja.</p>' + back, 400);

@@ -117,7 +117,7 @@ export function LegalPage() {
                   <tr>
                     <td>Suscripción por correo («Sigue al club»)</td>
                     <td>Correo electrónico y a qué jugadores (o a todo el equipo) quieres seguir</td>
-                    <td>Enviarte, como mucho, un correo a media jornada y otro al final de cada torneo en el que juegan quienes sigues, con cómo van, contra quién juegan, si ganan y los resultados</td>
+                    <td>Enviarte un correo a media jornada y otro al final de cada torneo en el que juegan quienes sigues (cómo van, contra quién juegan, si ganan y los resultados) y, si sigues a un jugador concreto, avisos de hechos importantes (queda eliminado, llega a la final, podio); nunca un correo por partido</td>
                     <td>Consentimiento (art. 6.1.a RGPD), al marcar la casilla y confirmar el correo que te enviamos (doble confirmación)</td>
                     <td>Hasta que te des de baja con el enlace de cada correo (se borra tu dirección) o lo solicites; las suscripciones sin confirmar se borran a los 7 días</td>
                   </tr>

@@ -52,7 +52,7 @@ export function FollowSection() {
   return (
     <section className="section follow" aria-labelledby="follow-title" id="sigue">
       <div className="container follow__box">
-        <SectionHeading sport id="follow-title" eyebrow="Sigue al club" title="Recibe los resultados en tu correo" lead="Elige a todo el equipo o a los jugadores que quieras seguir. En cada torneo te escribiremos como mucho dos veces: a media jornada, con cómo van, contra quién juegan y si ganan, y al final, con los resultados." />
+        <SectionHeading sport id="follow-title" eyebrow="Sigue al club" title="Recibe los resultados en tu correo" lead="Elige a todo el equipo o a los jugadores que quieras seguir. En cada torneo te escribiremos a media jornada (cómo van, contra quién juegan y si ganan) y al final, con los resultados. Si sigues a un jugador concreto, te avisamos además de lo importante: si queda eliminado, llega a la final o gana. Nunca un correo por partido." />
         {enabled === false && <p className="follow__note" role="status">Estamos activando el envío de correos. Vuelve en unos días y podrás suscribirte.</p>}
         {status === 'sent' ? (
           <p className="follow__ok" role="status">
@@ -83,7 +83,7 @@ export function FollowSection() {
             <label className="follow__consent">
               <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} required disabled={enabled !== true} />
               <span>
-                Acepto que el Club Bádminton Universidad de Valladolid use mi correo para enviarme, como mucho, un aviso a media jornada y otro al final de cada torneo. Puedo darme de baja con un clic en cualquier correo. Más información en la <Link to="/legal">política de privacidad</Link>.
+                Acepto que el Club Bádminton Universidad de Valladolid use mi correo para enviarme un aviso a media jornada y otro al final de cada torneo y, si sigo a un jugador, los hechos importantes (eliminado, final, podio). Puedo darme de baja con un clic en cualquier correo. Más información en la <Link to="/legal">política de privacidad</Link>.
               </span>
             </label>
             {status === 'error' && <p className="follow__error" role="alert">{message}</p>}

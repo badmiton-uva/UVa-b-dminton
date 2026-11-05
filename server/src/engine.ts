@@ -237,14 +237,45 @@ export class SyncEngine {
    * Vuelve a asociar a los participantes ya guardados con la lista del club (por si la lista cambió o el nombre corto del torneo
    * no coincidía con el completo) y completa el identificador en los partidos guardados. No hace peticiones.
    */
+  /**
+   * Deshace asociaciones antiguas por nombre que eran de un homónimo: un participante sin club de la UVA cuyo nombre oficial es más corto que el
+   * de la lista (sin segundo apellido: «Javier Gonzalez» frente a «Javier Gonzalez Martin») y que no consta con el nombre completo (que sí
+   * sería la confirmación por perfil oficial). Se retira su asociación, sus partidos y sus inscripciones en ese torneo. Devuelve cuántas.
+   */
+  purgeHomonyms(roster: Player[], rows: { g: string; id: number; name: string; club: string | null; pid: number | null }[]): number {
+    let purged = 0;
+    for (const r of rows) {
+      if (!r.pid || isUvaClub(r.club)) continue;
+      const pl = roster.find((x) => x.id === r.pid);
+      if (!pl || findByNameLoose([pl], r.name, { shorterOk: false })) continue; // mismo nombre o más largo: no hay duda
+      this.db.prepare('update entrants set player_id = null where tournament_guid = ? and ts_player_id = ?').run(r.g, r.id);
+      r.pid = null;
+      const still = this.db.prepare('select 1 x from entrants where tournament_guid = ? and player_id = ?').get(r.g, pl.id);
+      if (!still) {
+        this.db.prepare('delete from tournament_players where tournament_guid = ? and player_id = ?').run(r.g, pl.id);
+        this.db.prepare('delete from entries where tournament_guid = ? and player_id = ?').run(r.g, pl.id);
+      }
+      for (const m of this.db.prepare('select key, json from matches where tournament_guid = ?').all(r.g) as unknown as { key: string; json: string }[]) {
+        const stored = JSON.parse(m.json) as StoredMatch;
+        if (stored.sides.some((s) => s.players.some((p) => p.tsPlayerId === r.id && p.uva))) {
+          this.db.prepare('delete from matches where key = ?').run(m.key);
+        }
+      }
+      purged++;
+    }
+    if (purged > 0) invalidatePublicState(this.db);
+    return purged;
+  }
+
   relinkEntrants() {
     const roster = listPlayers(this.db);
     const link = this.db.prepare('insert or ignore into tournament_players(tournament_guid, player_id) values(?, ?)');
     const rows = this.db.prepare('select tournament_guid g, ts_player_id id, name, club, player_id pid from entrants').all() as unknown as { g: string; id: number; name: string; club: string | null; pid: number | null }[];
     const set = this.db.prepare('update entrants set player_id = ? where tournament_guid = ? and ts_player_id = ?');
+    this.purgeHomonyms(roster, rows);
     for (const r of rows) {
       if (r.pid || (r.club && !isUvaClub(r.club))) continue;
-      const p = findByNameLoose(roster, r.name);
+      const p = findByNameLoose(roster, r.name, { shorterOk: isUvaClub(r.club) });
       if (!p) continue;
       set.run(p.id, r.g, r.id);
       link.run(r.g, p.id);

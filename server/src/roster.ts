@@ -118,14 +118,21 @@ export function deletePlayer(db: Db, id: number): boolean {
  * Como `findByName`, pero admite el nombre corto de los torneos («Pablo Martín») frente al completo del ranking
  * («Pablo Martín Castañeda»). Exige al menos dos palabras y que el resultado sea único.
  */
-export function findByNameLoose(players: Player[], name: string): Player | undefined {
+/**
+ * Busca por nombre, con tolerancia: el nombre oficial puede traer más palabras que el de la lista (segundo apellido, etc.).
+ * Con `shorterOk: false` NO se acepta un nombre oficial MÁS CORTO que el de la lista («Javier Gonzalez» frente a «Javier Gonzalez Martin»):
+ * sin el segundo apellido no se sabe de quién se trata y hay homónimos en otros clubes. Solo vale si hay otra prueba (club de la UVA, perfil oficial).
+ */
+export function findByNameLoose(players: Player[], name: string, opts: { shorterOk?: boolean } = {}): Player | undefined {
   const exact = players.find((p) => sameFullName(p.name, name));
   if (exact) return exact;
   const t = new Set(nameTokens(name));
   if (t.size < 2) return undefined;
+  const shorterOk = opts.shorterOk ?? true;
   const hits = players.filter((p) => {
     const r = new Set(nameTokens(p.name));
     if (r.size < 2) return false;
+    if (!shorterOk && t.size < r.size) return false; // el nombre oficial no trae todo lo que trae el de la lista
     const [small, big] = r.size <= t.size ? [r, t] : [t, r];
     return [...small].every((x) => big.has(x));
   });

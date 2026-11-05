@@ -198,7 +198,7 @@ export function entrantLabel(names: string[], club: string | undefined, publicPl
   const parts = names.map((n) => {
     // Nombre corto del torneo frente al completo de la lista; y si el club publicado es otro, es un homónimo, no del club.
     // (En parejas el club publicado puede ser el del compañero: la comprobación del club solo se aplica a individuales.)
-    const pub = names.length > 1 || !club || isUvaClub(club) ? findByNameLoose(publicPlayers, n) : undefined;
+    const pub = names.length > 1 || !club || isUvaClub(club) ? findByNameLoose(publicPlayers, n, { shorterOk: isUvaClub(club) }) : undefined;
     if (pub) return { text: pub.name, uva: true };
     if (isUvaClub(club)) return { text: 'Jugador/a UVa', uva: false };
     if (settings.drawNames === 'full') return { text: n, uva: false };

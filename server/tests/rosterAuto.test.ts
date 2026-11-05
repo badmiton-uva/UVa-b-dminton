@@ -144,7 +144,9 @@ describe('cuadros públicos con nombres cortos', () => {
     const { entrantLabel } = await import('../src/publicView');
     const pablo = { id: 1, name: 'Pablo Martin Castañeda', profileGuid: null, category: null, isMinor: false, guardianConsent: false, public: true, consentBy: 'x', consentAt: 'y', notes: null };
     expect(entrantLabel(['Pablo Martin'], 'UNIVERSIDAD DE VALLADOLID', [pablo])).toEqual({ label: 'Pablo Martin Castañeda', uva: true });
-    expect(entrantLabel(['Pablo Martin'], undefined, [pablo]).uva).toBe(true);
+    // Sin club publicado, un nombre más corto que el de la lista (sin segundo apellido) puede ser un homónimo: no se da por bueno. Con el nombre completo, sí.
+    expect(entrantLabel(['Pablo Martin'], undefined, [pablo]).uva).toBe(false);
+    expect(entrantLabel(['Pablo Martin Castañeda'], undefined, [pablo]).uva).toBe(true);
     expect(entrantLabel(['Pablo Martin'], 'OTRO CLUB', [pablo]).uva).toBe(false); // homónimo
   });
 });

@@ -27,7 +27,7 @@ import { buildStoredMatch, type ClubEntrants, diffMatch, findClubEntrants, match
 
 const DEFAULT_TZ = 'Europe/Madrid';
 
-export type JobKind = 'roster' | 'discover' | 'info' | 'draws' | 'day' | 'calendar' | 'entries' | 'identify' | 'history' | 'liga';
+export type JobKind = 'roster' | 'discover' | 'info' | 'draws' | 'day' | 'calendar' | 'entries' | 'identify' | 'verify' | 'history' | 'liga';
 
 /**
  * Reconocer a la gente del club en un torneo antes de que haya cuadros: se lee la lista de jugadores (solo nombres), se eligen los de la
@@ -139,6 +139,15 @@ export class SyncEngine {
     }
 
     const rows = this.db.prepare('select * from tournaments where hidden = 0 and manual = 0').all() as unknown as TournamentRow[];
+    // Asociaciones por nombre corto pendientes de verificar con el perfil oficial: los torneos en juego o próximos, primero.
+    if (this.src.playerProfile) {
+      const sus = new Set(this.suspectEntrants(listPlayers(this.db)).map((r) => r.g));
+      for (const t of rows) {
+        if (!sus.has(t.guid)) continue;
+        const ph = tournamentPhase({ startDate: t.start_date, endDate: t.end_date }, today);
+        jobs.push({ key: `verify:${t.guid}`, kind: 'verify', guid: t.guid, phase: ph, due: 0, rank: ph === 'past' ? 5 : 2 });
+      }
+    }
     // Los torneos ya terminados solo se leen (una vez, para la trayectoria) cuando no hay ninguno en juego, para no retrasar lo urgente.
     // Solo un torneo en juego lo retrasa: las noticias y la gráfica se rehacen enseguida tras un reinicio, empezando por el torneo terminado más reciente.
     const quiet = !rows.some((t) => tournamentPhase({ startDate: t.start_date, endDate: t.end_date }, today) === 'live');
@@ -161,6 +170,13 @@ export class SyncEngine {
       jobs.push({ key: `info:${t.guid}`, kind: 'info', guid: t.guid, phase, due: infoDue, rank: phase === 'live' ? 2 : 3 });
       if (!t.info_ok_at) continue;
       if (phase === 'past') {
+        // Torneos recientes con gente del club y sin partidos guardados (p. ej. tras limpiar una asociación errónea): se leen sus días una vez.
+        if (quiet && t.start_date && daysBetween(t.start_date, today) <= 30 && kvGet(this.db, `needs-rebuild:${t.guid}`) && (this.db.prepare('select count(*) n from matches where tournament_guid = ?').get(t.guid) as unknown as { n: number }).n === 0 && (this.db.prepare('select count(*) n from tournament_players where tournament_guid = ?').get(t.guid) as unknown as { n: number }).n > 0) {
+          for (const date of JSON.parse(t.days_json) as string[]) {
+            if (kvGet(this.db, `rebuilt:${t.guid}:${date}`)) continue;
+            jobs.push({ key: `day:${t.guid}:${date}`, kind: 'day', guid: t.guid, date, phase, due: 0, rank: 6.5 });
+          }
+        }
         if (!t.draws_ok_at && quiet && settings.backfillDays > 0 && t.start_date && daysBetween(t.start_date, today) <= settings.backfillDays) {
           jobs.push({ key: `draws:${t.guid}`, kind: 'draws', guid: t.guid, phase, due: backfillAt + 2 * 60_000, rank: 6 + daysBetween(t.start_date, today) / 1000 });
         }
@@ -238,33 +254,48 @@ export class SyncEngine {
    * no coincidía con el completo) y completa el identificador en los partidos guardados. No hace peticiones.
    */
   /**
-   * Deshace asociaciones antiguas por nombre que eran de un homónimo: un participante sin club de la UVA cuyo nombre oficial es más corto que el
-   * de la lista (sin segundo apellido: «Javier Gonzalez» frente a «Javier Gonzalez Martin») y que no consta con el nombre completo (que sí
-   * sería la confirmación por perfil oficial). Se retira su asociación, sus partidos y sus inscripciones en ese torneo. Devuelve cuántas.
+   * Participantes asociados a una persona de la lista SOLO por el nombre, con un nombre oficial más corto que el de la lista (sin segundo apellido:
+   * «Javier Gonzalez» frente a «Javier Gonzalez Martin») y sin club de la UVA: pueden ser un homónimo de otro club. Los que ya se verificaron no salen.
    */
-  purgeHomonyms(roster: Player[], rows: { g: string; id: number; name: string; club: string | null; pid: number | null }[]): number {
-    let purged = 0;
-    for (const r of rows) {
-      if (!r.pid || isUvaClub(r.club)) continue;
+  private suspectEntrants(roster: Player[]) {
+    const rows = this.db.prepare('select tournament_guid g, ts_player_id id, name, club, player_id pid from entrants where player_id is not null').all() as unknown as { g: string; id: number; name: string; club: string | null; pid: number }[];
+    return rows.filter((r) => {
+      if (isUvaClub(r.club)) return false;
       const pl = roster.find((x) => x.id === r.pid);
-      if (!pl || findByNameLoose([pl], r.name, { shorterOk: false })) continue; // mismo nombre o más largo: no hay duda
-      this.db.prepare('update entrants set player_id = null where tournament_guid = ? and ts_player_id = ?').run(r.g, r.id);
-      r.pid = null;
-      const still = this.db.prepare('select 1 x from entrants where tournament_guid = ? and player_id = ?').get(r.g, pl.id);
-      if (!still) {
-        this.db.prepare('delete from tournament_players where tournament_guid = ? and player_id = ?').run(r.g, pl.id);
-        this.db.prepare('delete from entries where tournament_guid = ? and player_id = ?').run(r.g, pl.id);
-      }
-      for (const m of this.db.prepare('select key, json from matches where tournament_guid = ?').all(r.g) as unknown as { key: string; json: string }[]) {
-        const stored = JSON.parse(m.json) as StoredMatch;
-        if (stored.sides.some((s) => s.players.some((p) => p.tsPlayerId === r.id && p.uva))) {
-          this.db.prepare('delete from matches where key = ?').run(m.key);
-        }
-      }
-      purged++;
+      if (!pl || findByNameLoose([pl], r.name, { shorterOk: false })) return false; // nombre completo (o más largo): sin duda
+      return kvGet(this.db, `verified:${r.g}:${r.id}`) === undefined;
+    });
+  }
+
+  /** Retira de un torneo la asociación de un participante con una persona de la lista: su vínculo, sus partidos y sus inscripciones. */
+  private unlinkEntrant(guid: string, tsPlayerId: number, rosterId: number) {
+    this.db.prepare('update entrants set player_id = null where tournament_guid = ? and ts_player_id = ?').run(guid, tsPlayerId);
+    if (!this.db.prepare('select 1 x from entrants where tournament_guid = ? and player_id = ?').get(guid, rosterId)) {
+      this.db.prepare('delete from tournament_players where tournament_guid = ? and player_id = ?').run(guid, rosterId);
+      this.db.prepare('delete from entries where tournament_guid = ? and player_id = ?').run(guid, rosterId);
     }
-    if (purged > 0) invalidatePublicState(this.db);
-    return purged;
+    for (const m of this.db.prepare('select key, json from matches where tournament_guid = ?').all(guid) as unknown as { key: string; json: string }[]) {
+      const stored = JSON.parse(m.json) as StoredMatch;
+      if (stored.sides.some((s) => s.players.some((p) => p.tsPlayerId === tsPlayerId && p.uva))) this.db.prepare('delete from matches where key = ?').run(m.key);
+    }
+    invalidatePublicState(this.db);
+  }
+
+  /**
+   * Comprueba con el PERFIL OFICIAL (el que enlaza su ficha en el torneo) si un participante asociado por nombre corto es de verdad la persona de la
+   * lista. Si el perfil es otro, es un homónimo y se retira. Si no se puede comprobar (la persona no tiene perfil enlazado o la ficha no lo muestra), se deja.
+   */
+  private async verify(job: Job, now: Date) {
+    const guid = job.guid!;
+    const roster = listPlayers(this.db);
+    const next = this.suspectEntrants(roster).find((r) => r.g === guid);
+    if (!next) return;
+    const pl = roster.find((x) => x.id === next.pid)!;
+    const found = await this.src.playerProfile!(guid, next.id, priorityFor(job.phase, 'discover'));
+    const decisive = !!found && !!pl.profileGuid;
+    const same = !decisive || found!.toUpperCase() === pl.profileGuid!.toUpperCase();
+    kvSet(this.db, `verified:${guid}:${next.id}`, { ok: same, decisive, at: now.toISOString() });
+    if (!same) this.unlinkEntrant(guid, next.id, pl.id);
   }
 
   relinkEntrants() {
@@ -272,14 +303,18 @@ export class SyncEngine {
     const link = this.db.prepare('insert or ignore into tournament_players(tournament_guid, player_id) values(?, ?)');
     const rows = this.db.prepare('select tournament_guid g, ts_player_id id, name, club, player_id pid from entrants').all() as unknown as { g: string; id: number; name: string; club: string | null; pid: number | null }[];
     const set = this.db.prepare('update entrants set player_id = ? where tournament_guid = ? and ts_player_id = ?');
-    this.purgeHomonyms(roster, rows);
+    // Primera pasada tras la limpieza errónea del 05/11/2026: lo que se vuelve a asociar en torneos ya terminados necesita releer sus días (se borraron sus partidos).
+    const first = !kvGet(this.db, 'migrated-rebuild-1');
     for (const r of rows) {
       if (r.pid || (r.club && !isUvaClub(r.club))) continue;
-      const p = findByNameLoose(roster, r.name, { shorterOk: isUvaClub(r.club) });
+      if (kvGet<{ ok: boolean }>(this.db, `verified:${r.g}:${r.id}`)?.ok === false) continue; // el perfil oficial demostró que es un homónimo
+      const p = findByNameLoose(roster, r.name);
       if (!p) continue;
       set.run(p.id, r.g, r.id);
       link.run(r.g, p.id);
+      if (first) kvSet(this.db, `needs-rebuild:${r.g}`, { at: nowIso() });
     }
+    if (first) kvSet(this.db, 'migrated-rebuild-1', { at: nowIso() });
     const byTournament = new Map<string, Map<number, number>>();
     for (const r of this.db.prepare('select tournament_guid g, ts_player_id id, player_id pid from entrants where player_id is not null').all() as unknown as { g: string; id: number; pid: number }[]) {
       (byTournament.get(r.g) ?? byTournament.set(r.g, new Map()).get(r.g)!).set(r.id, r.pid);
@@ -368,6 +403,8 @@ export class SyncEngine {
         return this.readEntries(job, now);
       case 'identify':
         return this.identify(job, now);
+      case 'verify':
+        return this.verify(job, now);
       case 'history':
         return this.readHistory(now);
       case 'liga':
@@ -647,6 +684,7 @@ export class SyncEngine {
     );
     const link = this.db.prepare('insert or ignore into tournament_players(tournament_guid, player_id) values(?, ?)');
     for (const f of findClubEntrants(entrants, roster)) {
+      if (kvGet<{ ok: boolean }>(this.db, `verified:${guid}:${f.tsPlayerId}`)?.ok === false) continue; // homónimo ya descartado con el perfil oficial
       up.run(guid, f.tsPlayerId, f.name, f.club ?? null, f.rosterId ?? null, now.toISOString());
       if (f.rosterId) link.run(guid, f.rosterId);
     }
@@ -685,6 +723,7 @@ export class SyncEngine {
     // Partidos que acaban de terminar: los cuadros y las clasificaciones cambian con ellos, así que se leen ya (no a su hora).
     if (finishedNow > 0) this.kick(`draws:${guid}`, now);
     kvSet(this.db, `ok:${job.key}`, { at: now.toISOString() });
+    if (job.phase === 'past') kvSet(this.db, `rebuilt:${guid}:${job.date}`, { at: now.toISOString() }); // lectura de reconstrucción hecha: no se repite
     this.recomputeEstimate(guid, job.date!, now);
     // Un resultado nuevo de un partido del club necesita una segunda lectura igual para darse por bueno: se pide ya, sin esperar los 3 min.
     if (resultPending) this.kick(job.key, now, settings.confirmGapMs);

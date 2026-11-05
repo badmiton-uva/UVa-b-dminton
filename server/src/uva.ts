@@ -63,8 +63,8 @@ export function findClubEntrants(entrants: EntrantLike[], roster: Player[]): Fou
       if (!tsPlayerId || !name) return;
       // Apellidos muy comunes tienen homónimos en otros clubes: un nombre de la lista solo vale si el club publicado
       // es el de la UVA o no se publica ninguno. Con otro club, es otra persona.
-      // Sin club publicado, un nombre oficial más corto que el de la lista (sin segundo apellido) no basta: puede ser un homónimo.
-      const rostered = !e.club || isUvaClub(e.club) ? findByNameLoose(roster, name, { shorterOk: isUvaClub(e.club) }) : undefined;
+      // Un nombre oficial más corto que el de la lista (sin segundo apellido) y sin club de la UVA queda «por verificar» con el perfil oficial (ver engine.verify).
+      const rostered = !e.club || isUvaClub(e.club) ? findByNameLoose(roster, name) : undefined;
       const uva = isUvaClub(e.club) || !!rostered;
       if (uva) out.push({ tsPlayerId, name, club: e.club, rosterId: rostered?.id, uva });
     });

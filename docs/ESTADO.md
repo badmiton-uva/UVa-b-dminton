@@ -192,10 +192,13 @@ badminton.es no avisa cuando publica algo, así que el servidor lo detecta con l
 - Cada jueves a las 15:00 (Madrid), el servidor envía a `WEEKEND_PREVIEW_EMAIL` (por defecto pablitocastaneda06@gmail.com; `off` lo desactiva) un correo por cada torneo con jugadores de la UVa que empieza en 1-4 días: el primer partido del club, el primer partido de cada jugador por orden de hora (estimada y oficial, prueba, pista, rival y «con quién» en dobles) y cuántos más tiene programados. Si aún no hay orden de juego, lo dice y lista a los inscritos.
 - Se comprueba cada minuto y vale hasta 3 h después de las 15:00 (por si Render reinicia); una sola vez por torneo (`kv weekend-preview:<torneo>:<fecha>`, visible en `/api/health?full=1 › mail`). Día y hora configurables (`WEEKEND_PREVIEW_WEEKDAY`, `WEEKEND_PREVIEW_HOUR`). FormSubmit: la dirección debe estar activada (ya lo está para el Publicista).
 
-## Homónimos: el segundo apellido manda (05/11/2026)
-- Fallo: en Guadarrama figuraba «Javier Gonzalez» (otro club, perfil oficial distinto del de nuestro Javier González Martín) y se asoció por nombre corto: salían partidos, resultados y una noticia automática que no eran del club.
-- Regla nueva (`roster.ts › findByNameLoose`, opción `shorterOk`): un nombre oficial MÁS CORTO que el de la lista (sin segundo apellido) solo vale si el club publicado es el de la UVA; sin club o con otro club no se da por bueno. El nombre completo, o más largo, sigue valiendo. El reconocimiento por perfil oficial (`identify`) no cambia y es la confirmación segura.
-- Limpieza (`engine.ts › purgeHomonyms`, al arrancar): se deshacen las asociaciones antiguas de ese tipo (participante, partidos e inscripciones del torneo). Las confirmadas con nombre completo no se tocan. Pruebas en `tests/homonyms.test.ts`.
+## Homónimos: el perfil oficial decide (05/11/2026)
+- Fallo: en Guadarrama figuraba «Javier Gonzalez» (otro club; perfil oficial distinto del de nuestro Javier González Martín) y se asoció por nombre corto: salían partidos, resultados y una noticia automática que no eran del club.
+- Una primera corrección demasiado agresiva (borrar toda asociación por nombre corto) se llevó también a jugadores legítimos (Eduardo en Estella, Cantabria…): muchos cuadros oficiales traen nombres sin segundo apellido y sin club. Se rehízo así:
+  - Un participante asociado por nombre corto (el oficial es más corto que el de la lista), sin club de la UVA, queda «por verificar» (`engine.ts › suspectEntrants`).
+  - El trabajo `verify` lee la ficha de ese participante en el torneo y compara su **perfil oficial** con el de la persona de la lista: si es otro, es un homónimo y se retira su vínculo, sus partidos e inscripciones (`unlinkEntrant`, queda anotado en `verified:<torneo>:<id>` y no se vuelve a asociar); si coincide o no se puede comprobar, se deja.
+  - Reconstrucción: lo asociado de nuevo en la primera pasada tras el cambio se marca (`needs-rebuild`) y, si el torneo terminó hace ≤ 30 días y no tiene partidos guardados, se releen sus días una vez (`rebuilt:`) para recuperar los partidos borrados.
+- Pruebas en `tests/homonyms.test.ts`.
 
 ## Cambio de nombre de la cuenta de GitHub (22/10/2026)
 - La cuenta pasó de `Pablo06Casta` a `badmiton-uva`: la web está ahora en https://badmiton-uva.github.io/UVa-b-dminton/ (la dirección antigua da 404) y Web-cerca en https://badmiton-uva.github.io/PABLO-APP/.

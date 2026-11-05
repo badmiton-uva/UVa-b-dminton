@@ -102,5 +102,5 @@ describe('sin saturar a badminton.es', () => {
     }
     console.log(`Lecturas lógicas por hora en jornada: ${perHour.join(', ')}  (máx. posible a 2,5 s: 1440)`);
     expect(Math.max(...perHour)).toBeLessThan(240); // < 1 cada 15 s de media: por debajo de un 17 % de lo que permite el espaciado
-  });
+  }, 30_000); // simula 8 h de lecturas: en el CI lento superaba los 5 s por defecto
 });

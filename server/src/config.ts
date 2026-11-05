@@ -118,6 +118,13 @@ export const settings = {
     /** Minutos desde la hora en que sigue valiendo el envío (por si el servidor se reinicia justo entonces). */
     windowMin: num(process.env.WEEKEND_PREVIEW_WINDOW_MINUTES, 180),
   },
+  /** Resumen de resultados del club por correo: cada domingo a las 15:00 (Madrid), los resultados del torneo del finde y un mensaje para redes. `WEEKEND_RESULTS_EMAIL=off` lo desactiva. */
+  weekendResults: {
+    email: process.env.WEEKEND_RESULTS_EMAIL === 'off' ? '' : process.env.WEEKEND_RESULTS_EMAIL ?? 'pablitocastaneda06@gmail.com',
+    weekday: num(process.env.WEEKEND_RESULTS_WEEKDAY, 0),
+    hour: num(process.env.WEEKEND_RESULTS_HOUR, 15),
+    windowMin: num(process.env.WEEKEND_RESULTS_WINDOW_MINUTES, 180),
+  },
   /** Limita las consultas a la API pública por IP y minuto. */
   publicRatePerMinute: num(process.env.PUBLIC_RATE_PER_MINUTE, 120),
   /** Días que se conservan las entradas del registro de cambios. */

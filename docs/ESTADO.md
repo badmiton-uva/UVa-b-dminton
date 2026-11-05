@@ -200,6 +200,10 @@ badminton.es no avisa cuando publica algo, así que el servidor lo detecta con l
   - Reconstrucción: lo asociado de nuevo en la primera pasada tras el cambio se marca (`needs-rebuild`) y, si el torneo terminó hace ≤ 30 días, se releen sus días una vez (`rebuilt:`) para recuperar los partidos borrados.
 - Pruebas en `tests/homonyms.test.ts`.
 
+## Resultados del finde por correo (`server/src/weekendResults.ts`)
+- Cada domingo a las 15:00 (Madrid) el servidor envía a `WEEKEND_RESULTS_EMAIL` (por defecto pablitocastaneda06@gmail.com; `off` lo desactiva) un correo por cada torneo del fin de semana con jugadores de la UVa y algún partido jugado: balance del club, medallas, otras pruebas, partido a partido por jugador (con rival y pista) y un **mensaje listo para redes** (el pie de foto de `social.ts`, versión corta para stories y enlaces a las imágenes cuadrada y vertical). Si el torneo sigue en juego lo avisa como provisional.
+- Se comprueba cada minuto, vale hasta 3 h después de las 15:00 y se envía una sola vez por torneo y día (`kv weekend-results:…`, visible en `/api/health?full=1 › mail`). Día/hora configurables (`WEEKEND_RESULTS_WEEKDAY`, `WEEKEND_RESULTS_HOUR`). Depende de FormSubmit: si está caído (05/11 dio error 522 durante horas), no sale; se recomienda un respaldo (ver abajo).
+
 ## Cambio de nombre de la cuenta de GitHub (22/10/2026)
 - La cuenta pasó de `Pablo06Casta` a `badmiton-uva`: la web está ahora en https://badmiton-uva.github.io/UVa-b-dminton/ (la dirección antigua da 404) y Web-cerca en https://badmiton-uva.github.io/PABLO-APP/.
 - El servidor autoriza siempre las dos direcciones (`CLUB_ORIGINS` en `server/src/config.ts`); antes solo la antigua y por eso la web nueva no recibía noticias ni datos en vivo.

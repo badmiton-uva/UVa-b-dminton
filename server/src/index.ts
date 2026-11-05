@@ -13,6 +13,7 @@ import { draftChronicles } from './chronicle';
 import { sendDueItineraries } from './itinerary';
 import { purgeGhostEra } from './patterns';
 import { sendWeekendPreviews } from './weekendPreview';
+import { sendWeekendResults } from './weekendResults';
 import { notifyUpcoming, realSender } from './push';
 import { RealSource } from './source';
 import { OfficialLiveReaders } from './officialReaders';
@@ -119,6 +120,12 @@ if (sender) setInterval(() => void notifyUpcoming(db, new Date(), sender).catch(
 if (settings.weekendPreview.email) {
   console.log('Previa del finde por correo: jueves a las 15:00 (Madrid).');
   setInterval(() => void sendWeekendPreviews(db, cachedPublicState(db).state, new Date()).catch((e) => console.error('previa del finde', e)), 60_000).unref();
+}
+
+// Resultados del finde por correo: los domingos a las 15:00 (Madrid), resultados del club y mensaje para redes.
+if (settings.weekendResults.email) {
+  console.log('Resultados del finde por correo: domingo a las 15:00 (Madrid).');
+  setInterval(() => void sendWeekendResults(db, cachedPublicState(db).state, new Date()).catch((e) => console.error('resultados del finde', e)), 60_000).unref();
 }
 
 const shutdown = () => {

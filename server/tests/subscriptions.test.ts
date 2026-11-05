@@ -238,3 +238,21 @@ describe('si el correo no sale', () => {
     expect(out.sent).toHaveLength(1);
   });
 });
+
+describe('CORS de las suscripciones desde la web publicada', () => {
+  it('el preflight permite POST con JSON desde el origen del club y no desde otros', async () => {
+    const db = memDb();
+    const server = http.createServer(createApp(db, undefined, new Hub(db), new Outbox()));
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const pre = (origin: string) => fetch(`${base}/api/public/subscribe`, { method: 'OPTIONS', headers: { Origin: origin, 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'content-type' } });
+    const ok = await pre('https://badmiton-uva.github.io');
+    expect(ok.status).toBe(204);
+    expect(ok.headers.get('access-control-allow-origin')).toBe('https://badmiton-uva.github.io');
+    expect(ok.headers.get('access-control-allow-methods')).toContain('POST');
+    expect(ok.headers.get('access-control-allow-headers')).toContain('Content-Type');
+    expect((await pre('https://otra-web.example')).headers.get('access-control-allow-origin')).toBeNull();
+    server.closeAllConnections();
+    await new Promise((r) => server.close(r));
+  });
+});

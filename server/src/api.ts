@@ -158,7 +158,7 @@ export function createApp(db: Db, engine: SyncEngine | undefined, hub: Hub, mail
     const route = `${req.method} ${url.pathname}`;
     try {
       if (req.method === 'OPTIONS') {
-        res.writeHead(204, { ...cors(req), 'Access-Control-Allow-Methods': 'GET', 'Access-Control-Allow-Headers': 'Content-Type' });
+        res.writeHead(204, { ...cors(req), 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '86400' });
         return res.end();
       }
 

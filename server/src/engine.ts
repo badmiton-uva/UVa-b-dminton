@@ -170,8 +170,8 @@ export class SyncEngine {
       jobs.push({ key: `info:${t.guid}`, kind: 'info', guid: t.guid, phase, due: infoDue, rank: phase === 'live' ? 2 : 3 });
       if (!t.info_ok_at) continue;
       if (phase === 'past') {
-        // Torneos recientes con gente del club y sin partidos guardados (p. ej. tras limpiar una asociación errónea): se leen sus días una vez.
-        if (quiet && t.start_date && daysBetween(t.start_date, today) <= 30 && kvGet(this.db, `needs-rebuild:${t.guid}`) && (this.db.prepare('select count(*) n from matches where tournament_guid = ?').get(t.guid) as unknown as { n: number }).n === 0 && (this.db.prepare('select count(*) n from tournament_players where tournament_guid = ?').get(t.guid) as unknown as { n: number }).n > 0) {
+        // Torneos recientes marcados para reconstruir (tras una limpieza errónea que borró partidos): se leen sus días una vez.
+        if (quiet && t.start_date && daysBetween(t.start_date, today) <= 30 && kvGet(this.db, `needs-rebuild:${t.guid}`) && (this.db.prepare('select count(*) n from tournament_players where tournament_guid = ?').get(t.guid) as unknown as { n: number }).n > 0) {
           for (const date of JSON.parse(t.days_json) as string[]) {
             if (kvGet(this.db, `rebuilt:${t.guid}:${date}`)) continue;
             jobs.push({ key: `day:${t.guid}:${date}`, kind: 'day', guid: t.guid, date, phase, due: 0, rank: 6.5 });

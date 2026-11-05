@@ -197,7 +197,7 @@ badminton.es no avisa cuando publica algo, así que el servidor lo detecta con l
 - Una primera corrección demasiado agresiva (borrar toda asociación por nombre corto) se llevó también a jugadores legítimos (Eduardo en Estella, Cantabria…): muchos cuadros oficiales traen nombres sin segundo apellido y sin club. Se rehízo así:
   - Un participante asociado por nombre corto (el oficial es más corto que el de la lista), sin club de la UVA, queda «por verificar» (`engine.ts › suspectEntrants`).
   - El trabajo `verify` lee la ficha de ese participante en el torneo y compara su **perfil oficial** con el de la persona de la lista: si es otro, es un homónimo y se retira su vínculo, sus partidos e inscripciones (`unlinkEntrant`, queda anotado en `verified:<torneo>:<id>` y no se vuelve a asociar); si coincide o no se puede comprobar, se deja.
-  - Reconstrucción: lo asociado de nuevo en la primera pasada tras el cambio se marca (`needs-rebuild`) y, si el torneo terminó hace ≤ 30 días y no tiene partidos guardados, se releen sus días una vez (`rebuilt:`) para recuperar los partidos borrados.
+  - Reconstrucción: lo asociado de nuevo en la primera pasada tras el cambio se marca (`needs-rebuild`) y, si el torneo terminó hace ≤ 30 días, se releen sus días una vez (`rebuilt:`) para recuperar los partidos borrados.
 - Pruebas en `tests/homonyms.test.ts`.
 
 ## Cambio de nombre de la cuenta de GitHub (22/10/2026)

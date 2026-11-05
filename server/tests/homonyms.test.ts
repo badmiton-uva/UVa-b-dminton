@@ -69,7 +69,7 @@ describe('homónimos: sin el segundo apellido, la persona se confirma con el per
 });
 
 describe('reconstrucción de partidos de torneos recientes tras una limpieza', () => {
-  it('un torneo terminado hace poco, con gente del club y sin partidos guardados, relee sus días una sola vez', async () => {
+  it('un torneo terminado hace poco, marcado para reconstruir y con gente del club, relee sus días una sola vez', async () => {
     const d = memDb();
     const p = createPlayer(d, { name: 'Ana Prueba', profile: PROFILE, public: true, consentBy: 'Ella', consentAt: '2026-10-01' });
     d.prepare('insert into tournaments(guid, name, start_date, end_date, city, discovered_at, info_ok_at, draws_ok_at, days_json) values(?,?,?,?,?,?,?,?,?)').run(GUID, 'Estella', '2026-10-24', '2026-10-24', 'Estella', 'x', 'x', 'x', '["2026-10-24"]');

@@ -172,7 +172,8 @@ describe('avisos de torneo: a media jornada y al final, agrupados', () => {
     expect(await sendUpdates(db, day1(over), FIN, out)).toBe(1);
     expect(out.sent[1].subject).toBe('UVa en Master Gijón: resultados finales'); // varios jugadores: asunto del torneo
     expect(out.sent[1].text).toContain('🥉 Bronce');
-    expect(out.sent[1].text).toContain('La UVa en Gijón');
+    expect(out.sent[1].text).not.toContain('La UVa en Gijón'); // la noticia ya no va en el correo
+    expect(out.sent[1].html).toContain('Más en directo'); // solo un enlace discreto
     expect(await sendUpdates(db, day1(over), new Date(FIN.getTime() + 60_000), out)).toBe(0);
     expect(out.sent).toHaveLength(2); // dos correos en todo el torneo
   });
@@ -210,7 +211,7 @@ describe('avisos de torneo: a media jornada y al final, agrupados', () => {
   });
 
   describe('hechos importantes de un jugador (eliminado, final, campeón)', () => {
-    const live = (results: object[], matches: object[] = T().matches) => T({ progress: { date: '2026-11-07', total: 60, finished: 15, live: 4, done: false }, results, matches });
+    const live = (results: object[], matches: object[] = T().matches) => T({ startDate: '2026-11-06', progress: { date: '2026-11-07', total: 60, finished: 15, live: 4, done: false }, results, matches });
     const lost = { id: 'x', state: 'finished', players: ['Ana Prueba'], date: '2026-11-07', outcome: 'loss', score: '18-21 15-21', opponent: 'Eva Gil', event: 'DM-n4 · Octavos', plannedStart: '2026-11-07T12:00:00Z' };
     const early = new Date('2026-11-07T09:00:00Z'); // sábado 10:00: aún no toca la media jornada
 
@@ -268,6 +269,63 @@ describe('avisos de torneo: a media jornada y al final, agrupados', () => {
       expect(out.sent[0].text).toContain('ANA PRUEBA');
       expect(await sendUpdates(db, day1(live([...(t.results as object[]), { event: 'IM-n4', entrant: 'Ana Prueba', text: 'Pasa a Final', done: false }])), new Date(early.getTime() + 600_000), out)).toBe(0); // tope: el nuevo espera a mañana
       settings.subscriptions.maxAlertsPerDay = 3;
+    });
+  });
+
+  describe('previa del día del torneo (8:00) y avisos de pasar de ronda', () => {
+    const live = (results: object[], matches: object[]) => T({ startDate: '2026-11-06', progress: { date: '2026-11-07', total: 60, finished: 15, live: 4, done: false }, results, matches });
+    const pre = (matches: object[]) => T({ progress: { date: '2026-11-07', total: 60, finished: 0, live: 0, done: false }, results: [], matches });
+    const sched = (id: string, who: string[], at: string, extra: object = {}) => ({ id, state: 'scheduled', players: who, date: '2026-11-07', event: 'IM-n4 · Grupo H', court: '2', plannedStart: at, ...extra });
+    const EIGHT = new Date('2026-11-07T07:05:00Z'); // sábado 08:05 de Madrid
+
+    it('a las 8:00 del día en que empieza el torneo: primer partido de cada jugador con hora, pista y rival; solo a quien se suscribió antes', async () => {
+      const db = memDb();
+      await confirmed(db, 'ana@example.com', { players: [1] }, new Date('2026-11-01T10:00:00Z'));
+      await confirmed(db, 'tarde@example.com', { all: true }, new Date('2026-11-07T06:30:00Z')); // se suscribe el mismo día
+      const out = new Outbox();
+      const t = pre([sched('a', ['Ana Prueba'], '2026-11-07T08:30:00Z', { estimatedStart: '2026-11-07T08:42:00Z', opponent: 'Pedro de la Torre' }), sched('b', ['Ana Prueba'], '2026-11-07T11:00:00Z'), sched('c', ['Luis Prueba'], '2026-11-07T09:00:00Z')]);
+      expect(await sendUpdates(db, day1(t), new Date('2026-11-07T06:30:00Z'), out)).toBe(0); // 07:30: aún no son las 8:00
+      expect(await sendUpdates(db, day1(t), EIGHT, out)).toBe(1);
+      const m = out.sent[0];
+      expect(m.to).toBe('ana@example.com');
+      expect(m.subject).toBe('Ana Prueba: hoy juega en Master Gijón');
+      expect(m.text).toContain('Primer partido: 09:42 (estimada) (oficial 09:30) contra Pedro de la Torre');
+      expect(m.text).toContain('Hoy tiene 2 partidos programados.');
+      expect(m.text).not.toContain('Luis Prueba');
+      expect(await sendUpdates(db, day1(t), new Date(EIGHT.getTime() + 60_000), out)).toBe(0); // una sola previa
+    });
+
+    it('«pasa de ronda» se avisa una vez por ronda (no por partido), y llegar a la final tiene su aviso', async () => {
+      const db = memDb();
+      await confirmed(db, 'ana@example.com', { players: [1] }, new Date('2026-11-01T10:00:00Z'));
+      const out = new Outbox();
+      const next = sched('n', ['Ana Prueba'], '2026-11-07T10:00:00Z', { event: 'IM-n4 · Octavos', opponent: 'Marta Ruiz', court: '4' });
+      const t1 = live([{ event: 'IM-n4', entrant: 'Ana Prueba', text: 'Próximo partido: Octavos (16)', done: false }], [next]);
+      const at = new Date('2026-11-07T08:00:00Z');
+      expect(await sendUpdates(db, day1(t1), at, out)).toBe(1);
+      expect(out.sent[0].subject).toBe('Ana Prueba pasa a Octavos en Individual masculino · -n4');
+      expect(out.sent[0].text).toContain('Siguiente: 11:00 contra Marta Ruiz · Pista 4');
+      expect(await sendUpdates(db, day1(t1), new Date(at.getTime() + 60_000), out)).toBe(0); // misma ronda: ya avisado
+      const t2 = live([{ event: 'IM-n4', entrant: 'Ana Prueba', text: 'Próximo partido: Cuartos (8)', done: false }], [next]);
+      expect(await sendUpdates(db, day1(t2), new Date(at.getTime() + 3 * 3600_000), out)).toBe(1); // otra ronda: otro aviso
+      expect(out.sent[1].subject).toContain('pasa a Cuartos');
+      const t3 = live([{ event: 'IM-n4', entrant: 'Ana Prueba', text: 'Pasa a Final', done: false }], [next]);
+      expect(await sendUpdates(db, day1(t3), new Date(at.getTime() + 6 * 3600_000), out)).toBe(1);
+      expect(out.sent[2].subject).toBe('¡Ana Prueba llega a la final de Individual masculino · -n4!');
+      // El tope de 3 avisos distintos al día se respeta; la fase de grupos que clasifica no cuenta como pasar de ronda.
+      const grupos = live([{ event: 'IF-n1', entrant: 'Ana Prueba', text: '1.º en Grupo C · se clasifica para el cuadro final', done: false }], [next]);
+      expect(await sendUpdates(memDb(), day1(grupos), at, new Outbox())).toBe(0);
+    });
+
+    it('un torneo de un día da hasta 3 correos (previa, media jornada y final) el mismo día', async () => {
+      const db = memDb();
+      await confirmed(db, 'club@example.com', { all: true }, new Date('2026-11-01T10:00:00Z'));
+      const out = new Outbox();
+      const one = (progress: object, extra: object = {}) => T({ startDate: '2026-11-07', endDate: '2026-11-07', progress, ...extra });
+      expect(await sendUpdates(db, day1(one({ date: '2026-11-07', total: 60, finished: 0, done: false }, { results: [], matches: [sched('a', ['Ana Prueba'], '2026-11-07T08:30:00Z')] })), EIGHT, out)).toBe(1);
+      expect(await sendUpdates(db, day1(one({ date: '2026-11-07', total: 60, finished: 30, done: false })), new Date('2026-11-07T12:30:00Z'), out)).toBe(1);
+      expect(await sendUpdates(db, day1(one({ date: '2026-11-07', total: 60, finished: 60, done: true })), new Date('2026-11-07T18:30:00Z'), out)).toBe(1);
+      expect(out.sent.map((m) => m.subject.replace(/^.*: /, ''))).toEqual(['hoy juegan', 'así van a media jornada', 'resultados finales']);
     });
   });
 

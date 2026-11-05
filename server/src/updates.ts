@@ -15,7 +15,7 @@ import { settings } from './config';
 const TZ = 'Europe/Madrid';
 const site = () => settings.siteUrl || 'https://badmiton-uva.github.io/UVa-b-dminton';
 
-export type Kind = 'mid' | 'final';
+export type Kind = 'pre' | 'mid' | 'final';
 export interface Due { t: PublicTournament; kind: Kind; names: string[] }
 
 /** Los jugadores de este torneo que sigue la persona (todos, si sigue al equipo). */
@@ -32,6 +32,11 @@ export function midDue(t: PublicTournament, today: string): boolean {
   if (!p || p.done || p.date !== today || p.total < 12) return false;
   const share = p.finished / p.total;
   return share >= 0.4 && share <= 0.8 && t.matches.some((m) => m.state === 'finished' || m.state === 'live');
+}
+
+/** ¿Toca la previa? El día en que empieza el torneo (a partir de las 8:00), si hay partidos por jugar hoy y aún no ha llegado la media jornada. */
+export function preDue(t: PublicTournament, today: string): boolean {
+  return t.startDate === today && !midDue(t, today) && !t.progress?.done && t.matches.some((m) => m.date === today && m.state !== 'finished');
 }
 
 const when = (m: PublicMatch, today: string) => {
@@ -60,6 +65,13 @@ export function highlights(t: PublicTournament, name: string): string[] {
 
 /** Líneas de una persona: lo jugado (con rival y resultado), lo que juega ahora y lo siguiente. */
 function playerLines(t: PublicTournament, name: string, kind: Kind, today: string): string[] {
+  if (kind === 'pre') {
+    const todays = t.matches.filter((m) => m.players.includes(name) && m.date === today && m.state !== 'finished').sort((a, b) => startKey(a).localeCompare(startKey(b)));
+    if (!todays.length) return ['Hoy no tiene partidos programados.'];
+    const f = todays[0];
+    const official = f.plannedStart && f.estimatedStart && clockOf(f.plannedStart) !== clockOf(f.estimatedStart) ? ` (oficial ${clockOf(f.plannedStart)})` : '';
+    return [`Primer partido: ${when(f, today)}${official}${vs(f)} (${where(f)})`, ...(todays.length > 1 ? [`Hoy tiene ${todays.length} partidos programados.`] : [])];
+  }
   const ms = t.matches.filter((m) => m.players.includes(name)).sort((a, b) => startKey(a).localeCompare(startKey(b)));
   const lines: string[] = [];
   for (const m of ms.filter((x) => x.state === 'finished')) {
@@ -78,21 +90,17 @@ function playerLines(t: PublicTournament, name: string, kind: Kind, today: strin
 interface Section { title: string; lines: string[] }
 function sectionFor(state: PublicState, d: Due, today: string): Section[] {
   const { t, kind, names } = d;
-  const head = kind === 'mid' ? `${t.name} · así van a media jornada` : `${t.name} · resultados finales`;
+  const head = kind === 'pre' ? `${t.name} · hoy juegan` : kind === 'mid' ? `${t.name} · así van a media jornada` : `${t.name} · resultados finales`;
   const wins = t.matches.filter((m) => m.state === 'finished' && m.outcome === 'win' && m.players.some((p) => names.includes(p))).length;
   const losses = t.matches.filter((m) => m.state === 'finished' && m.outcome === 'loss' && m.players.some((p) => names.includes(p))).length;
   const out: Section[] = [];
   const p = t.progress;
-  const intro = [`${dateRange(t.startDate, t.endDate)}${t.city ? ` · ${t.city}` : ''}`, `${kind === 'mid' ? 'Hasta ahora' : 'Balance'}: ${wins} victoria${wins === 1 ? '' : 's'} y ${losses} derrota${losses === 1 ? '' : 's'}.`];
+  const intro = [`${dateRange(t.startDate, t.endDate)}${t.city ? ` · ${t.city}` : ''}`, ...(kind === 'pre' ? [] : [`${kind === 'mid' ? 'Hasta ahora' : 'Balance'}: ${wins} victoria${wins === 1 ? '' : 's'} y ${losses} derrota${losses === 1 ? '' : 's'}.`])];
   if (kind === 'mid' && p && p.total) intro.push(`El torneo va por ${p.finished} de ${p.total} partidos${p.estimatedEnd ? ` y terminaría hacia las ${clockOf(p.estimatedEnd)} (estimación)` : ''}.`);
   out.push({ title: head, lines: intro });
   for (const n of names) {
-    const key = highlights(t, n);
+    const key = kind === 'pre' ? [] : highlights(t, n);
     out.push({ title: n, lines: [...(key.length ? ['LO MÁS IMPORTANTE', ...key.map((k) => `★ ${k}`), 'PARTIDO A PARTIDO'] : []), ...playerLines(t, n, kind, today)] });
-  }
-  if (kind === 'final') {
-    const news = state.news.find((n) => n.tournamentGuid === t.id);
-    if (news) out.push({ title: 'La noticia', lines: [news.title, news.summary] });
   }
   return out;
 }
@@ -104,14 +112,16 @@ export function buildEmail(state: PublicState, due: Due[], unsub: string, follow
   const onlyFinal = due.every((d) => d.kind === 'final');
   const first = due[0].t.name;
   const one = due.length === 1 && due[0].names.length === 1 ? due[0].names[0].split(' ').slice(0, 2).join(' ') : undefined;
-  const subject = one ? `${one}: ${due[0].kind === 'mid' ? 'así va' : 'resultados'} en ${first}` : due.length === 1 ? `UVa en ${first}: ${onlyMid ? 'así van a media jornada' : 'resultados finales'}` : `Club Bádminton UVa: ${onlyMid ? 'así van los torneos' : onlyFinal ? 'resultados finales' : 'novedades de los torneos'}`;
-  const text = `Para ti: ${followed}\n\n${sections.map((s) => `${s.title.toUpperCase()}\n${s.lines.map((l) => `   ${l}`).join('\n')}`).join('\n\n')}\n\nEn directo: ${site()}/directo\n\nRecibes este correo porque te suscribiste en la web del Club Bádminton Universidad de Valladolid (como mucho, uno a media jornada y otro al final de cada torneo). Para darte de baja: ${unsub}\n`;
-  const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#14132f"><p style="color:#566072;margin-bottom:4px">Para ti: ${escapeHtml(followed)}</p>${sections.map((s, i) => `${i === 0 || /·/.test(s.title) ? `<h2 style="color:#2f2c64;margin:18px 0 4px">${escapeHtml(s.title)}</h2>` : `<h3 style="color:#2f2c64;border-bottom:2px solid #7a3fe0;padding-bottom:3px;margin:14px 0 4px">${escapeHtml(s.title)}</h3>`}<ul style="padding-left:18px;margin:4px 0">${s.lines.map((l) => `<li style="margin:4px 0">${escapeHtml(l)}</li>`).join('')}</ul>`).join('')}<p><a href="${site()}/directo" style="display:inline-block;background:#2f2c64;color:#fff;padding:10px 18px;text-decoration:none;border-radius:4px">Ver en directo</a></p><p style="font-size:12px;color:#566072">Recibes este correo porque te suscribiste en la web del Club Bádminton Universidad de Valladolid (como mucho, uno a media jornada y otro al final de cada torneo). <a href="${unsub}">Darme de baja</a></p></div>`;
+  const onlyPre = due.every((d) => d.kind === 'pre');
+  const verb = (k: Kind) => (k === 'pre' ? 'hoy juega' : k === 'mid' ? 'así va' : 'resultados');
+  const subject = one ? `${one}: ${verb(due[0].kind)} en ${first}` : due.length === 1 ? `UVa en ${first}: ${onlyPre ? 'hoy juegan' : onlyMid ? 'así van a media jornada' : 'resultados finales'}` : `Club Bádminton UVa: ${onlyPre ? 'hoy juegan' : onlyMid ? 'así van los torneos' : onlyFinal ? 'resultados finales' : 'novedades de los torneos'}`;
+  const text = `Para ti: ${followed}\n\n${sections.map((s) => `${s.title.toUpperCase()}\n${s.lines.map((l) => `   ${l}`).join('\n')}`).join('\n\n')}\n\nEn directo: ${site()}/directo\n\nRecibes este correo porque te suscribiste en la web del Club Bádminton Universidad de Valladolid (como mucho, uno antes, otro a media jornada y otro al final de cada torneo, más avisos de lo importante si sigues a un jugador). Para darte de baja: ${unsub}\n`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#14132f"><p style="color:#566072;margin-bottom:4px">Para ti: ${escapeHtml(followed)}</p>${sections.map((s, i) => `${i === 0 || /·/.test(s.title) ? `<h2 style="color:#2f2c64;margin:18px 0 4px">${escapeHtml(s.title)}</h2>` : `<h3 style="color:#2f2c64;border-bottom:2px solid #7a3fe0;padding-bottom:3px;margin:14px 0 4px">${escapeHtml(s.title)}</h3>`}<ul style="padding-left:18px;margin:4px 0">${s.lines.map((l) => `<li style="margin:4px 0">${escapeHtml(l)}</li>`).join('')}</ul>`).join('')}<p style="font-size:13px"><a href="${site()}/directo">Más en directo</a></p><p style="font-size:12px;color:#566072">Recibes este correo porque te suscribiste en la web del Club Bádminton Universidad de Valladolid (como mucho, uno antes, otro a media jornada y otro al final de cada torneo, más avisos de lo importante si sigues a un jugador). <a href="${unsub}">Darme de baja</a></p></div>`;
   return { subject, text, html };
 }
 
 /** Algo importante de una persona que sigue: quedó eliminada, llega a la final o ganó/quedó en el podio de una prueba. */
-export interface Alert { key: string; name: string; event: string; kind: 'out' | 'final' | 'gold' | 'silver' | 'bronze'; title: string; lines: string[] }
+export interface Alert { key: string; name: string; event: string; kind: 'out' | 'final' | 'advance' | 'gold' | 'silver' | 'bronze'; title: string; lines: string[] }
 
 /**
  * Hechos importantes de una persona en un torneo en juego (no cada partido): ya no juega más en una prueba (`done` y sin medalla: «Cae en Octavos»),
@@ -132,9 +142,19 @@ export function keyEvents(t: PublicTournament, name: string, today: string): Ale
     else if (r.done) {
       const last = [...matches].filter((m) => m.state === 'finished' && m.outcome === 'loss' && inEvent(m)).sort((a, b) => startKey(b).localeCompare(startKey(a)))[0];
       out.push(mk('out', `${name} queda eliminado en ${ev}`, [`❌ ${ev}: ${r.text}`, ...(last ? [`Último partido: perdió${vs(last)} (${last.score ?? 'sin marcador'})`] : []), 'Ya no tiene más partidos en esta prueba.']));
-    } else if (/final/i.test(r.text) && !/semifinal|cuartos|octavos|grupo/i.test(r.text.replace(/pasa a final/i, ''))) {
-      const next = matches.filter((m) => m.state !== 'finished' && inEvent(m) && /final/i.test(m.event ?? '')).sort((a, b) => startKey(a).localeCompare(startKey(b)))[0];
-      out.push(mk('final', `¡${name} llega a la final de ${ev}!`, [`🏸 ${name} juega la final de ${ev}.`, ...(next ? [`Siguiente: ${when(next, today)}${vs(next)}${next.court ? ` · Pista ${next.court}` : ''}`] : [])]));
+    } else {
+      // Pasa de ronda: «Próximo partido: Octavos (32)», «Pasa a Final»… Cada ronda se avisa una sola vez.
+      const m = /(?:pr[oó]ximo partido:\s*|pasa a\s+)(.+?)\s*(?:\(\d+\))?\s*$/i.exec(r.text.split('·')[0].trim());
+      if (m) {
+        const round = m[1].replace(/\s+/g, ' ').trim();
+        const isFinal = /^final$/i.test(round);
+        const next = matches.filter((x) => x.state !== 'finished' && inEvent(x) && new RegExp(round.slice(0, 6), 'i').test(x.event ?? '')).sort((a, b) => startKey(a).localeCompare(startKey(b)))[0] ?? matches.filter((x) => x.state !== 'finished' && inEvent(x)).sort((a, b) => startKey(a).localeCompare(startKey(b)))[0];
+        out.push({
+          key: `alert:${r.event}:${name}:adv:${round.toLowerCase()}`, name, event: ev, kind: isFinal ? 'final' : 'advance',
+          title: isFinal ? `¡${name} llega a la final de ${ev}!` : `${name} pasa a ${round} en ${ev}`,
+          lines: [isFinal ? `🏸 ${name} juega la final de ${ev}.` : `✅ ${name} sigue adelante en ${ev}: ${round}.`, ...(next ? [`Siguiente: ${when(next, today)}${vs(next)}${next.court ? ` · Pista ${next.court}` : ''}`] : [])],
+        });
+      }
     }
   }
   return out;
@@ -144,8 +164,8 @@ export function keyEvents(t: PublicTournament, name: string, today: string): Ale
 export function buildAlertEmail(alerts: { t: PublicTournament; a: Alert }[], unsub: string, followed: string): { subject: string; text: string; html: string } {
   const subject = alerts.length === 1 ? alerts[0].a.title : `Novedades importantes: ${[...new Set(alerts.map((x) => x.a.name.split(' ').slice(0, 2).join(' ')))].join(', ')}`;
   const sections = alerts.map((x) => ({ title: `${x.a.title} · ${x.t.name}`, lines: x.a.lines }));
-  const text = `Para ti: ${followed}\n\n${sections.map((s) => `${s.title.toUpperCase()}\n${s.lines.map((l) => `   ${l}`).join('\n')}`).join('\n\n')}\n\nEn directo: ${site()}/directo\n\nRecibes este correo porque sigues a este jugador en la web del Club Bádminton Universidad de Valladolid (solo avisamos de lo importante: eliminado, final o podio). Para darte de baja: ${unsub}\n`;
-  const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#14132f"><p style="color:#566072;margin-bottom:4px">Para ti: ${escapeHtml(followed)}</p>${sections.map((s) => `<h2 style="color:#2f2c64;margin:18px 0 4px">${escapeHtml(s.title)}</h2><ul style="padding-left:18px;margin:4px 0">${s.lines.map((l) => `<li style="margin:4px 0">${escapeHtml(l)}</li>`).join('')}</ul>`).join('')}<p><a href="${site()}/directo" style="display:inline-block;background:#2f2c64;color:#fff;padding:10px 18px;text-decoration:none;border-radius:4px">Ver en directo</a></p><p style="font-size:12px;color:#566072">Recibes este correo porque sigues a este jugador en la web del Club Bádminton Universidad de Valladolid (solo avisamos de lo importante: eliminado, final o podio). <a href="${unsub}">Darme de baja</a></p></div>`;
+  const text = `Para ti: ${followed}\n\n${sections.map((s) => `${s.title.toUpperCase()}\n${s.lines.map((l) => `   ${l}`).join('\n')}`).join('\n\n')}\n\nEn directo: ${site()}/directo\n\nRecibes este correo porque sigues a este jugador en la web del Club Bádminton Universidad de Valladolid (solo avisamos de lo importante: eliminado, pasa de ronda o podio). Para darte de baja: ${unsub}\n`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#14132f"><p style="color:#566072;margin-bottom:4px">Para ti: ${escapeHtml(followed)}</p>${sections.map((s) => `<h2 style="color:#2f2c64;margin:18px 0 4px">${escapeHtml(s.title)}</h2><ul style="padding-left:18px;margin:4px 0">${s.lines.map((l) => `<li style="margin:4px 0">${escapeHtml(l)}</li>`).join('')}</ul>`).join('')}<p style="font-size:13px"><a href="${site()}/directo">Más en directo</a></p><p style="font-size:12px;color:#566072">Recibes este correo porque sigues a este jugador en la web del Club Bádminton Universidad de Valladolid (solo avisamos de lo importante: eliminado, pasa de ronda o podio). <a href="${unsub}">Darme de baja</a></p></div>`;
   return { subject, text, html };
 }
 
@@ -162,18 +182,23 @@ const alreadySent = (db: Db, id: number, guid: string, kind: Kind) => !!db.prepa
  */
 export async function sendUpdates(db: Db, state: PublicState, now: Date, mailer: Mailer): Promise<number> {
   const hour = madridHour(now);
-  if (hour < 9 || hour >= 23) return 0;
+  if (hour < 8 || hour >= 23) return 0;
   const today = todayIn(TZ, now);
+  const pre = state.tournaments.filter((t) => preDue(t, today));
   const mid = state.tournaments.filter((t) => midDue(t, today));
   const fin = state.tournaments.filter((t) => finished(t, today) && t.matches.some((m) => m.state === 'finished'));
   const playing = state.tournaments.some((t) => !!t.startDate && t.startDate <= today && !finished(t, today) && t.results.length > 0);
-  if (mid.length === 0 && fin.length === 0 && !playing) return 0;
+  if (pre.length === 0 && mid.length === 0 && fin.length === 0 && !playing) return 0;
   let sent = 0;
   for (const sub of listConfirmed(db)) {
     if (sent >= 25) break;
     if (sentToday(db, sub.id, today) >= settings.subscriptions.maxPerDay) continue;
     const joined = (sub.confirmedAt ?? '').slice(0, 10);
     const due: Due[] = [];
+    for (const t of pre) {
+      const names = followedIn(state, sub, t);
+      if (names.length && joined < (t.startDate ?? '') && !alreadySent(db, sub.id, t.id, 'pre')) due.push({ t, kind: 'pre', names });
+    }
     for (const t of mid) {
       const names = followedIn(state, sub, t);
       if (names.length && joined < (t.startDate ?? '') && !alreadySent(db, sub.id, t.id, 'mid')) due.push({ t, kind: 'mid', names });

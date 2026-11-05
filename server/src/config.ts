@@ -130,10 +130,11 @@ export const settings = {
    * (`MAIL_FROM`, una dirección verificada en el proveedor; `MAIL_FROM_NAME`). Sin proveedor, las suscripciones quedan desactivadas.
    */
   mail: {
-    provider: (process.env.MAIL_PROVIDER ?? '').toLowerCase() as '' | 'brevo' | 'resend',
-    apiKey: process.env.BREVO_API_KEY ?? process.env.RESEND_API_KEY ?? process.env.MAIL_API_KEY ?? '',
-    from: process.env.MAIL_FROM ?? '',
-    fromName: process.env.MAIL_FROM_NAME ?? 'Club Bádminton UVa',
+    provider: (process.env.MAIL_PROVIDER ?? '').trim().toLowerCase() as '' | 'brevo' | 'resend',
+    // Se ignoran espacios y saltos de línea sobrantes (al pegar en el panel del hosting) y las variables vacías.
+    apiKey: [process.env.BREVO_API_KEY, process.env.RESEND_API_KEY, process.env.MAIL_API_KEY].map((v) => (v ?? '').trim()).find(Boolean) ?? '',
+    from: (process.env.MAIL_FROM ?? '').trim(),
+    fromName: (process.env.MAIL_FROM_NAME ?? '').trim() || 'Club Bádminton UVa',
   },
   /** Suscripciones por correo: tope de personas, y resumen semanal (por defecto, domingos a las 21:00 de Madrid). */
   subscriptions: {

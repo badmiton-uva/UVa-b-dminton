@@ -175,7 +175,7 @@ export function createApp(db: Db, engine: SyncEngine | undefined, hub: Hub, mail
           startedAt: STARTED_AT,
           uptimeMin: Math.round(process.uptime() / 60),
           // Diagnóstico sin datos personales: qué hizo el motor por última vez y el último error.
-          ...(full ? { backup: backupState, subscribers: subscriberCounts(db), mail: (db.prepare("select k, v from kv where k like 'weekend-%' order by updated_at desc limit 10").all() as unknown as { k: string; v: string }[]).map((r) => ({ k: r.k.slice(0, 40), ...(JSON.parse(r.v) as object) })) } : {}),
+          ...(full ? { backup: backupState, subscribers: subscriberCounts(db), mailConfig: { provider: settings.mail.provider || null, apiKey: !!settings.mail.apiKey, from: !!settings.mail.from, active: !!mailer }, mail: (db.prepare("select k, v from kv where k like 'weekend-%' order by updated_at desc limit 10").all() as unknown as { k: string; v: string }[]).map((r) => ({ k: r.k.slice(0, 40), ...(JSON.parse(r.v) as object) })) } : {}),
           engine: !engine || !d ? null : {
             ...(full ? d : { pausedUntil: d.pausedUntil, retrying: d.retrying.length, http: d.http }),
             lastJob: last ? { job: last.key.split(':')[0], at: last.at, ok: last.ok } : null,

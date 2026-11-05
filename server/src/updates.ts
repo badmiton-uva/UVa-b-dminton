@@ -42,6 +42,22 @@ const startKey = (m: PublicMatch) => m.plannedStart ?? `${m.date ?? '9999'}T${m.
 const vs = (m: PublicMatch) => (m.opponent ? ` contra ${m.opponent}` : '');
 const where = (m: PublicMatch) => [m.event, m.court && `Pista ${m.court}`].filter(Boolean).join(' · ');
 
+/**
+ * Lo más importante de una persona en el torneo, para ponerlo arriba: medallas, en qué punto está en cada prueba (pasa a la final, cae en octavos…) y su
+ * balance de partidos. Solo sale lo que consta en los cuadros publicados.
+ */
+export function highlights(t: PublicTournament, name: string): string[] {
+  const mine = t.results.filter((r) => r.entrant.split(/\s+\/\s+/).includes(name));
+  const out: string[] = [];
+  for (const r of mine.filter((x) => x.place).sort((a, b) => a.place! - b.place!)) out.push(`${r.place === 1 ? '🥇 Oro' : r.place === 2 ? '🥈 Plata' : '🥉 Bronce'} en ${eventName(r.event)}${r.score ? ` (${r.score})` : ''}`);
+  for (const r of mine.filter((x) => !x.place)) out.push(`${eventName(r.event)}: ${r.text}`);
+  const ms = t.matches.filter((m) => m.state === 'finished' && m.players.includes(name));
+  const w = ms.filter((m) => m.outcome === 'win').length;
+  const l = ms.filter((m) => m.outcome === 'loss').length;
+  if (w + l > 0) out.push(`Balance: ${w} victoria${w === 1 ? '' : 's'} y ${l} derrota${l === 1 ? '' : 's'}`);
+  return out;
+}
+
 /** Líneas de una persona: lo jugado (con rival y resultado), lo que juega ahora y lo siguiente. */
 function playerLines(t: PublicTournament, name: string, kind: Kind, today: string): string[] {
   const ms = t.matches.filter((m) => m.players.includes(name)).sort((a, b) => startKey(a).localeCompare(startKey(b)));
@@ -70,10 +86,11 @@ function sectionFor(state: PublicState, d: Due, today: string): Section[] {
   const intro = [`${dateRange(t.startDate, t.endDate)}${t.city ? ` · ${t.city}` : ''}`, `${kind === 'mid' ? 'Hasta ahora' : 'Balance'}: ${wins} victoria${wins === 1 ? '' : 's'} y ${losses} derrota${losses === 1 ? '' : 's'}.`];
   if (kind === 'mid' && p && p.total) intro.push(`El torneo va por ${p.finished} de ${p.total} partidos${p.estimatedEnd ? ` y terminaría hacia las ${clockOf(p.estimatedEnd)} (estimación)` : ''}.`);
   out.push({ title: head, lines: intro });
-  for (const n of names) out.push({ title: n, lines: playerLines(t, n, kind, today) });
+  for (const n of names) {
+    const key = highlights(t, n);
+    out.push({ title: n, lines: [...(key.length ? ['LO MÁS IMPORTANTE', ...key.map((k) => `★ ${k}`), 'PARTIDO A PARTIDO'] : []), ...playerLines(t, n, kind, today)] });
+  }
   if (kind === 'final') {
-    const medals = t.results.filter((r) => r.place && r.entrant.split(/\s+\/\s+/).some((x) => names.includes(x)));
-    if (medals.length) out.push({ title: 'Medallas', lines: medals.map((r) => `${r.place === 1 ? '🥇 Oro' : r.place === 2 ? '🥈 Plata' : '🥉 Bronce'} · ${eventName(r.event)} · ${r.entrant}${r.score ? ` (${r.score})` : ''}`) });
     const news = state.news.find((n) => n.tournamentGuid === t.id);
     if (news) out.push({ title: 'La noticia', lines: [news.title, news.summary] });
   }
@@ -86,7 +103,8 @@ export function buildEmail(state: PublicState, due: Due[], unsub: string, follow
   const onlyMid = due.every((d) => d.kind === 'mid');
   const onlyFinal = due.every((d) => d.kind === 'final');
   const first = due[0].t.name;
-  const subject = due.length === 1 ? `UVa en ${first}: ${onlyMid ? 'así van a media jornada' : 'resultados finales'}` : `Club Bádminton UVa: ${onlyMid ? 'así van los torneos' : onlyFinal ? 'resultados finales' : 'novedades de los torneos'}`;
+  const one = due.length === 1 && due[0].names.length === 1 ? due[0].names[0].split(' ').slice(0, 2).join(' ') : undefined;
+  const subject = one ? `${one}: ${due[0].kind === 'mid' ? 'así va' : 'resultados'} en ${first}` : due.length === 1 ? `UVa en ${first}: ${onlyMid ? 'así van a media jornada' : 'resultados finales'}` : `Club Bádminton UVa: ${onlyMid ? 'así van los torneos' : onlyFinal ? 'resultados finales' : 'novedades de los torneos'}`;
   const text = `Para ti: ${followed}\n\n${sections.map((s) => `${s.title.toUpperCase()}\n${s.lines.map((l) => `   ${l}`).join('\n')}`).join('\n\n')}\n\nEn directo: ${site()}/directo\n\nRecibes este correo porque te suscribiste en la web del Club Bádminton Universidad de Valladolid (como mucho, uno a media jornada y otro al final de cada torneo). Para darte de baja: ${unsub}\n`;
   const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#14132f"><p style="color:#566072;margin-bottom:4px">Para ti: ${escapeHtml(followed)}</p>${sections.map((s, i) => `${i === 0 || /·/.test(s.title) ? `<h2 style="color:#2f2c64;margin:18px 0 4px">${escapeHtml(s.title)}</h2>` : `<h3 style="color:#2f2c64;border-bottom:2px solid #7a3fe0;padding-bottom:3px;margin:14px 0 4px">${escapeHtml(s.title)}</h3>`}<ul style="padding-left:18px;margin:4px 0">${s.lines.map((l) => `<li style="margin:4px 0">${escapeHtml(l)}</li>`).join('')}</ul>`).join('')}<p><a href="${site()}/directo" style="display:inline-block;background:#2f2c64;color:#fff;padding:10px 18px;text-decoration:none;border-radius:4px">Ver en directo</a></p><p style="font-size:12px;color:#566072">Recibes este correo porque te suscribiste en la web del Club Bádminton Universidad de Valladolid (como mucho, uno a media jornada y otro al final de cada torneo). <a href="${unsub}">Darme de baja</a></p></div>`;
   return { subject, text, html };

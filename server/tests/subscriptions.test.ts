@@ -147,7 +147,10 @@ describe('avisos de torneo: a media jornada y al final, agrupados', () => {
     expect(await sendUpdates(db, day1(T()), SAT, out)).toBe(1);
     expect(out.sent).toHaveLength(1);
     const m = out.sent[0];
-    expect(m.subject).toBe('UVa en Master Gijón: así van a media jornada');
+    expect(m.subject).toBe('Ana Prueba: así va en Master Gijón'); // un solo jugador: su nombre en el asunto
+    expect(m.text).toContain('LO MÁS IMPORTANTE\n   ★ 🥉 Bronce en Individual masculino · -n4'); // lo importante, arriba
+    expect(m.text.indexOf('LO MÁS IMPORTANTE')).toBeLessThan(m.text.indexOf('PARTIDO A PARTIDO'));
+    expect(m.text).toContain('★ Balance: 1 victoria y 0 derrotas');
     expect(m.text).toContain('✅ Ganó contra Pedro de la Torre: 21-15 21-14 (IM-n4 · Grupo H');
     expect(m.text).toContain('🟢 Juega ahora contra Eva Gil');
     expect(m.text).toContain('⏭ Siguiente: 14:20 (estimada) contra Marta Ruiz');
@@ -167,7 +170,7 @@ describe('avisos de torneo: a media jornada y al final, agrupados', () => {
     const over = T({ progress: { date: '2026-11-08', total: 90, finished: 90, done: true } });
     expect(await sendUpdates(db, day1(T()), new Date('2026-11-07T19:00:00Z'), out)).toBe(0); // sábado por la tarde: ya se avisó de la media jornada y el torneo sigue
     expect(await sendUpdates(db, day1(over), FIN, out)).toBe(1);
-    expect(out.sent[1].subject).toBe('UVa en Master Gijón: resultados finales');
+    expect(out.sent[1].subject).toBe('UVa en Master Gijón: resultados finales'); // varios jugadores: asunto del torneo
     expect(out.sent[1].text).toContain('🥉 Bronce');
     expect(out.sent[1].text).toContain('La UVa en Gijón');
     expect(await sendUpdates(db, day1(over), new Date(FIN.getTime() + 60_000), out)).toBe(0);

@@ -14,6 +14,9 @@ import { sendDueItineraries } from './itinerary';
 import { purgeGhostEra } from './patterns';
 import { sendWeekendPreviews } from './weekendPreview';
 import { sendWeekendResults } from './weekendResults';
+import { realMailer } from './mailer';
+import { sendDigests } from './digest';
+import { pruneSubscribers } from './subscribers';
 import { notifyUpcoming, realSender } from './push';
 import { RealSource } from './source';
 import { OfficialLiveReaders } from './officialReaders';
@@ -84,7 +87,9 @@ if (!settings.adminToken) console.warn('ADMIN_TOKEN sin definir: el panel de adm
 const sender = realSender();
 console.log(sender ? 'Avisos push: activados.' : 'Avisos push: desactivados (faltan VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY y VAPID_SUBJECT).');
 
-handler = createApp(db, engine, hub);
+const mailer = realMailer();
+console.log(mailer ? `Suscripciones por correo: activadas (${settings.mail.provider}).` : 'Suscripciones por correo: desactivadas (faltan MAIL_PROVIDER, la clave y MAIL_FROM).');
+handler = createApp(db, engine, hub, mailer);
 
 let stopping = false;
 const loop = async () => {
@@ -126,6 +131,12 @@ if (settings.weekendPreview.email) {
 if (settings.weekendResults.email) {
   console.log('Resultados del finde por correo: domingo a las 15:00 (Madrid).');
   setInterval(() => void sendWeekendResults(db, cachedPublicState(db).state, new Date()).catch((e) => console.error('resultados del finde', e)), 60_000).unref();
+}
+
+// Resumen semanal a quien se ha suscrito (domingos a las 21:00 de Madrid) y limpieza diaria de suscripciones sin confirmar.
+if (mailer) {
+  setInterval(() => void sendDigests(db, cachedPublicState(db).state, new Date(), mailer).catch((e) => console.error('resúmenes', e)), 60_000).unref();
+  setInterval(() => pruneSubscribers(db), 24 * 3600_000).unref();
 }
 
 const shutdown = () => {

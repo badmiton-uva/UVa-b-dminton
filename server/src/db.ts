@@ -198,6 +198,26 @@ create table if not exists captures (
   png blob not null
 );
 
+-- Suscripciones por correo (doble confirmación): quién sigue a qué jugadores. Se borra todo al darse de baja.
+create table if not exists subscribers (
+  id integer primary key autoincrement,
+  email text not null unique,
+  confirmed_at text,
+  created_at text not null,
+  -- Selección vigente (tras confirmar): todo el equipo o los jugadores de subscriber_players.
+  all_team integer not null default 0,
+  -- Selección pedida, pendiente de confirmar por correo.
+  pending_all integer not null default 0,
+  pending_players text not null default '[]',
+  pending_at text,
+  last_digest_date text
+);
+create table if not exists subscriber_players (
+  subscriber_id integer not null references subscribers(id) on delete cascade,
+  player_id integer not null,
+  primary key (subscriber_id, player_id)
+);
+
 -- Cuadros y clasificaciones tal como los publica la fuente. Con nombres de terceros: solo se sirven anonimizados.
 create table if not exists draws (
   tournament_guid text not null,

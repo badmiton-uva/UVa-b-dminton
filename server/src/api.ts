@@ -11,6 +11,8 @@ import { buildPublicState, cachedPublicState, invalidatePublicState, type Public
 import { pushConfigured, subscribe, unsubscribe } from './push';
 import { buildAccuracy } from './accuracy';
 import { currentShift } from './calibration';
+import type { Mailer } from './mailer';
+import { confirmSubscription, requestSubscription, SubscribeError, subscriberCounts, unsubscribe as unsubscribeEmail } from './subscribers';
 import { captureImage } from './itinerary';
 import { learnedPriors, learnedTiming, loadPatterns } from './patterns';
 import { defaultPriors } from './estimate';
@@ -116,7 +118,7 @@ const approvalPage = (title: string, inner: string) =>
 
 const STARTED_AT = new Date(Date.now() - process.uptime() * 1000).toISOString();
 
-export function createApp(db: Db, engine: SyncEngine | undefined, hub: Hub) {
+export function createApp(db: Db, engine: SyncEngine | undefined, hub: Hub, mailer?: Mailer) {
   const hits = new Map<string, { n: number; reset: number }>();
   const adminHtml = () => fs.readFileSync(path.join(import.meta.dirname, 'admin.html'), 'utf8');
 
@@ -173,7 +175,7 @@ export function createApp(db: Db, engine: SyncEngine | undefined, hub: Hub) {
           startedAt: STARTED_AT,
           uptimeMin: Math.round(process.uptime() / 60),
           // Diagnóstico sin datos personales: qué hizo el motor por última vez y el último error.
-          ...(full ? { backup: backupState, mail: (db.prepare("select k, v from kv where k like 'weekend-%' order by updated_at desc limit 10").all() as unknown as { k: string; v: string }[]).map((r) => ({ k: r.k.slice(0, 40), ...(JSON.parse(r.v) as object) })) } : {}),
+          ...(full ? { backup: backupState, subscribers: subscriberCounts(db), mail: (db.prepare("select k, v from kv where k like 'weekend-%' order by updated_at desc limit 10").all() as unknown as { k: string; v: string }[]).map((r) => ({ k: r.k.slice(0, 40), ...(JSON.parse(r.v) as object) })) } : {}),
           engine: !engine || !d ? null : {
             ...(full ? d : { pausedUntil: d.pausedUntil, retrying: d.retrying.length, http: d.http }),
             lastJob: last ? { job: last.key.split(':')[0], at: last.at, ok: last.ok } : null,
@@ -256,6 +258,47 @@ export function createApp(db: Db, engine: SyncEngine | undefined, hub: Hub) {
 
       if (route === 'GET /api/public/push/key') {
         return send(res, 200, { enabled: pushConfigured(), publicKey: pushConfigured() ? settings.vapid.publicKey : null }, cors(req));
+      }
+      // Suscripción por correo (doble confirmación): estado del servicio, alta/cambio y páginas de confirmar y darse de baja.
+      if (route === 'GET /api/public/subscribe') {
+        if (limited(req)) throw new HttpFail(429, 'Demasiadas consultas.');
+        return send(res, 200, { enabled: !!mailer }, cors(req));
+      }
+      if (route === 'POST /api/public/subscribe') {
+        if (limited(req)) throw new HttpFail(429, 'Demasiadas consultas.');
+        if (!mailer) throw new HttpFail(503, 'Las suscripciones por correo todavía no están activadas.');
+        try {
+          await requestSubscription(db, cachedPublicState(db).state, (await readJson(req)) as Parameters<typeof requestSubscription>[2], mailer);
+        } catch (e) {
+          if (e instanceof SubscribeError) throw new HttpFail(e.status, e.message);
+          console.error('suscripción', e);
+          throw new HttpFail(502, 'No hemos podido enviar el correo de confirmación. Inténtalo de nuevo en unos minutos.');
+        }
+        return send(res, 202, { ok: true }, cors(req)); // misma respuesta exista o no el correo
+      }
+      const sub = /^\/suscripcion\/(confirmar|baja)$/.exec(url.pathname);
+      if (sub && (req.method === 'GET' || req.method === 'POST')) {
+        if (limited(req)) throw new HttpFail(429, 'Demasiadas consultas.');
+        const id = Number(url.searchParams.get('i'));
+        const token = url.searchParams.get('t') ?? '';
+        const page = (title: string, body: string, status = 200) => {
+          res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+          res.end(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title></head><body style="font-family:Arial,sans-serif;max-width:520px;margin:48px auto;padding:0 16px;color:#14132f"><h1 style="color:#2f2c64">${esc(title)}</h1>${body}<p style="margin-top:32px;font-size:13px;color:#566072">Club Bádminton Universidad de Valladolid</p></body></html>`);
+        };
+        const back = settings.siteUrl ? `<p><a href="${esc(settings.siteUrl)}">Volver a la web del club</a></p>` : '';
+        const button = (label: string) => `<form method="post" action="${esc(url.pathname)}?i=${Number.isInteger(id) ? id : 0}&t=${encodeURIComponent(token)}"><button type="submit" style="background:#2f2c64;color:#fff;border:0;padding:12px 20px;border-radius:4px;font-size:16px;cursor:pointer">${label}</button></form>`;
+        if (req.method === 'GET') {
+          return sub[1] === 'confirmar'
+            ? page('Confirmar suscripción', `<p>Pulsa para confirmar que quieres recibir por correo las noticias y resultados del club.</p>${button('Confirmar suscripción')}`)
+            : page('Darse de baja', `<p>Pulsa para dejar de recibir los correos del club. Se borrará tu dirección.</p>${button('Darme de baja')}`);
+        }
+        for await (const _ of req) void _; // se descarta el cuerpo (los clientes de correo envían «List-Unsubscribe=One-Click»)
+        if (sub[1] === 'confirmar') {
+          const ok = Number.isInteger(id) && confirmSubscription(db, id, token);
+          return ok ? page('¡Suscripción confirmada!', `<p>Gracias. Recibirás un resumen semanal con las noticias y resultados de lo que has elegido. Cada correo lleva un enlace para darte de baja.</p>${back}`) : page('Enlace no válido', '<p>Este enlace no es válido o ya se usó. Puedes volver a suscribirte desde la web del club.</p>' + back, 400);
+        }
+        const gone = Number.isInteger(id) && unsubscribeEmail(db, id, token);
+        return gone ? page('Te has dado de baja', `<p>Hecho: no recibirás más correos y tu dirección se ha borrado.</p>${back}`) : page('Enlace no válido', '<p>Este enlace no es válido o ya te habías dado de baja.</p>' + back, 400);
       }
       if (route === 'POST /api/public/push/subscribe') {
         if (limited(req) || !pushConfigured()) throw new HttpFail(pushConfigured() ? 429 : 409, pushConfigured() ? 'Demasiadas consultas.' : 'Los avisos no están activados.');

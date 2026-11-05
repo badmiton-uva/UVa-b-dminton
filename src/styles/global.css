@@ -4038,3 +4038,19 @@ abbr.est--big {
 .ptimes__result--win { color: #1f9d55; }
 .ptimes__result--loss { color: #c0392b; }
 .ptimes__match--finished .ptimes__when strong { color: var(--muted); }
+
+/* ---------- Inicio: «Sigue al club» (suscripción por correo) ---------- */
+.follow { background: var(--violet-softer); border-top: 1px solid var(--gray-200); border-bottom: 1px solid var(--gray-200); }
+.follow__box { display: grid; gap: 14px; max-width: 760px; }
+.follow__form { display: grid; gap: 16px; padding: 18px; background: var(--white); border: 1px solid var(--gray-200); border-top: 5px solid var(--violet); }
+.follow__field { display: grid; gap: 6px; font-weight: 700; }
+.follow__field input[type='email'] { height: 46px; padding: 0 12px; font: inherit; border: 1px solid var(--gray-200); border-radius: var(--radius); }
+.follow__who { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.follow__who legend { padding: 0; margin-bottom: 6px; font-weight: 700; }
+.follow__who label, .follow__consent { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; }
+.follow__players { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; margin: 6px 0 0; padding: 12px; list-style: none; background: var(--gray-50); }
+.follow__consent { font-size: 0.9rem; color: var(--muted); }
+.follow__trap { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.follow__ok { margin: 0; padding: 16px 18px; background: var(--white); border-left: 5px solid #1f9d55; }
+.follow__error { margin: 0; color: var(--danger); font-weight: 700; }
+.follow__note { margin: 0; padding: 10px 14px; background: var(--white); border-left: 5px solid var(--violet); color: var(--muted); }

@@ -115,6 +115,13 @@ export function LegalPage() {
                     <td>Hasta que desactives el aviso o el navegador deje de recibirlos</td>
                   </tr>
                   <tr>
+                    <td>Suscripción por correo («Sigue al club»)</td>
+                    <td>Correo electrónico y a qué jugadores (o a todo el equipo) quieres seguir</td>
+                    <td>Enviarte un resumen semanal con noticias, resultados y partidos ganados</td>
+                    <td>Consentimiento (art. 6.1.a RGPD), al marcar la casilla y confirmar el correo que te enviamos (doble confirmación)</td>
+                    <td>Hasta que te des de baja con el enlace de cada correo (se borra tu dirección) o lo solicites; las suscripciones sin confirmar se borran a los 7 días</td>
+                  </tr>
+                  <tr>
                     <td>Registros técnicos del servidor</td>
                     <td>Datos técnicos de la conexión (dirección IP, fecha, página) en los registros del proveedor de alojamiento</td>
                     <td>Seguridad y funcionamiento del servicio</td>
@@ -145,6 +152,7 @@ export function LegalPage() {
               <li>Render (alojamiento del servidor del seguimiento en directo) y Upstash (copia de seguridad de la lista de jugadores y los partidos).</li>
               <li>FormSubmit (formsubmit.co), que recibe el mensaje del formulario de contacto y lo reenvía por correo al responsable de la web.</li>
               <li>Anthropic (API de Claude), que redacta borradores de crónicas de torneos a partir de los resultados ya públicos de las personas del club con consentimiento; no recibe datos de contacto ni de rivales, y ningún texto se publica sin aprobación del responsable.</li>
+              <li>El proveedor de envío de correo (Brevo o Resend), que envía los correos de confirmación y los resúmenes a las personas suscritas.</li>
               <li>El servicio de notificaciones del navegador (Google, Mozilla o Apple, según tu navegador) para los avisos push.</li>
             </ul>
             <p>

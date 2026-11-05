@@ -20,6 +20,7 @@ export const fetchLiga = async (): Promise<LigaData | null> => {
 };
 export const fetchNews = () => getJson<{ news: NewsItem[] }>('/api/public/news');
 export const fetchCalendar = () => getJson<{ meta: { comprobadoEl: string; fuente: string; nota: string }; tournaments: Tournament[] }>('/api/public/calendar');
+export const fetchSubscribeStatus = () => getJson<{ enabled: boolean }>('/api/public/subscribe');
 export const fetchPushKey = () => getJson<{ enabled: boolean; publicKey: string | null }>('/api/public/push/key');
 
 export async function postJson(path: string, body: unknown): Promise<void> {

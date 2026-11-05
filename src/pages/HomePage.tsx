@@ -1,5 +1,6 @@
 import { AboutSection } from '../components/home/AboutSection';
 import { AchievementsSection } from '../components/home/AchievementsSection';
+import { FollowSection } from '../components/home/FollowSection';
 import { Hero } from '../components/home/Hero';
 import { LiveNow } from '../components/home/LiveNow';
 import { PlayersSection } from '../components/home/PlayersSection';
@@ -19,6 +20,7 @@ export function HomePage() {
       <AboutSection />
       <PlayersSection />
       <AchievementsSection />
+      <FollowSection />
       <UpcomingSection />
       <MatchesSection />
       <QuickContact />

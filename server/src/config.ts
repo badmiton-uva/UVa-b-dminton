@@ -125,6 +125,25 @@ export const settings = {
     hour: num(process.env.WEEKEND_RESULTS_HOUR, 15),
     windowMin: num(process.env.WEEKEND_RESULTS_WINDOW_MINUTES, 180),
   },
+  /**
+   * Correo saliente (suscripciones y resúmenes): `MAIL_PROVIDER=brevo|resend` con su clave (`BREVO_API_KEY` / `RESEND_API_KEY`) y el remitente
+   * (`MAIL_FROM`, una dirección verificada en el proveedor; `MAIL_FROM_NAME`). Sin proveedor, las suscripciones quedan desactivadas.
+   */
+  mail: {
+    provider: (process.env.MAIL_PROVIDER ?? '').toLowerCase() as '' | 'brevo' | 'resend',
+    apiKey: process.env.BREVO_API_KEY ?? process.env.RESEND_API_KEY ?? process.env.MAIL_API_KEY ?? '',
+    from: process.env.MAIL_FROM ?? '',
+    fromName: process.env.MAIL_FROM_NAME ?? 'Club Bádminton UVa',
+  },
+  /** Suscripciones por correo: tope de personas, y resumen semanal (por defecto, domingos a las 21:00 de Madrid). */
+  subscriptions: {
+    max: num(process.env.SUBSCRIBERS_MAX, 3000),
+    digestWeekday: num(process.env.DIGEST_WEEKDAY, 0),
+    digestHour: num(process.env.DIGEST_HOUR, 21),
+    digestWindowMin: num(process.env.DIGEST_WINDOW_MINUTES, 180),
+    /** Mínimo entre dos correos de confirmación a la misma dirección. */
+    cooldownMin: num(process.env.SUBSCRIBE_COOLDOWN_MINUTES, 10),
+  },
   /** Limita las consultas a la API pública por IP y minuto. */
   publicRatePerMinute: num(process.env.PUBLIC_RATE_PER_MINUTE, 120),
   /** Días que se conservan las entradas del registro de cambios. */

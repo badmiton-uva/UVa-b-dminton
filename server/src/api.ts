@@ -119,6 +119,7 @@ const approvalPage = (title: string, inner: string) =>
 const STARTED_AT = new Date(Date.now() - process.uptime() * 1000).toISOString();
 
 export function createApp(db: Db, engine: SyncEngine | undefined, hub: Hub, mailer?: Mailer) {
+  let lastMailError: { at: string; message: string } | undefined;
   const hits = new Map<string, { n: number; reset: number }>();
   const adminHtml = () => fs.readFileSync(path.join(import.meta.dirname, 'admin.html'), 'utf8');
 
@@ -175,7 +176,7 @@ export function createApp(db: Db, engine: SyncEngine | undefined, hub: Hub, mail
           startedAt: STARTED_AT,
           uptimeMin: Math.round(process.uptime() / 60),
           // Diagnóstico sin datos personales: qué hizo el motor por última vez y el último error.
-          ...(full ? { backup: backupState, subscribers: subscriberCounts(db), mailConfig: { provider: settings.mail.provider || null, apiKey: !!settings.mail.apiKey, from: !!settings.mail.from, active: !!mailer }, mail: (db.prepare("select k, v from kv where k like 'weekend-%' order by updated_at desc limit 10").all() as unknown as { k: string; v: string }[]).map((r) => ({ k: r.k.slice(0, 40), ...(JSON.parse(r.v) as object) })) } : {}),
+          ...(full ? { backup: backupState, subscribers: subscriberCounts(db), mailConfig: { provider: settings.mail.provider || null, apiKey: !!settings.mail.apiKey, from: !!settings.mail.from, active: !!mailer, lastError: lastMailError ?? null }, mail: (db.prepare("select k, v from kv where k like 'weekend-%' order by updated_at desc limit 10").all() as unknown as { k: string; v: string }[]).map((r) => ({ k: r.k.slice(0, 40), ...(JSON.parse(r.v) as object) })) } : {}),
           engine: !engine || !d ? null : {
             ...(full ? d : { pausedUntil: d.pausedUntil, retrying: d.retrying.length, http: d.http }),
             lastJob: last ? { job: last.key.split(':')[0], at: last.at, ok: last.ok } : null,
@@ -272,6 +273,7 @@ export function createApp(db: Db, engine: SyncEngine | undefined, hub: Hub, mail
         } catch (e) {
           if (e instanceof SubscribeError) throw new HttpFail(e.status, e.message);
           console.error('suscripción', e);
+          lastMailError = { at: nowIso(), message: String((e as Error).message).slice(0, 300) };
           throw new HttpFail(502, 'No hemos podido enviar el correo de confirmación. Inténtalo de nuevo en unos minutos.');
         }
         return send(res, 202, { ok: true }, cors(req)); // misma respuesta exista o no el correo

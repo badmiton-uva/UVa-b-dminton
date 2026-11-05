@@ -226,3 +226,15 @@ describe('proveedor de correo y rutas HTTP', () => {
     });
   });
 });
+
+describe('si el correo no sale', () => {
+  it('no queda la suscripción a medias ni se bloquea el reintento', async () => {
+    const db = memDb();
+    const bad: Mailer = { send: async () => { throw new Error('proveedor caído'); } };
+    await expect(requestSubscription(db, state, { email: 'ana@example.com', consent: true, all: true }, bad, NOW)).rejects.toThrow('proveedor caído');
+    expect(db.prepare('select count(*) n from subscribers').get()).toEqual({ n: 0 });
+    const out = new Outbox();
+    await requestSubscription(db, state, { email: 'ana@example.com', consent: true, all: true }, out, new Date(NOW.getTime() + 1000)); // reintento inmediato
+    expect(out.sent).toHaveLength(1);
+  });
+});

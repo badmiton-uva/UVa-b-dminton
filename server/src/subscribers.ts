@@ -100,7 +100,14 @@ export async function requestSubscription(db: Db, state: PublicState, input: { e
     id = Number(db.prepare('insert into subscribers(email, created_at, pending_all, pending_players, pending_at) values(?,?,?,?,?)').run(email, at, c.all ? 1 : 0, JSON.stringify(c.players), at).lastInsertRowid);
   }
   const m = confirmMail(db, id, email, describe(state, c), !!row?.confirmed_at);
-  await mailer.send({ to: email, ...m });
+  try {
+    await mailer.send({ to: email, ...m });
+  } catch (e) {
+    // Si el correo no sale, no se queda la suscripción a medias ni se bloquea el reintento: lo nuevo se borra y lo existente vuelve a poder pedirse.
+    if (row) db.prepare('update subscribers set pending_at = null where id = ?').run(id);
+    else db.prepare('delete from subscribers where id = ?').run(id);
+    throw e;
+  }
 }
 
 /** Aplica lo pedido tras abrir el enlace de confirmación. Devuelve `undefined` si el enlace no vale. */

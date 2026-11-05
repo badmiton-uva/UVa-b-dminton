@@ -3,6 +3,7 @@ import { daysBetween } from './dates';
 import { type Db, kvGet, kvSet, nowIso } from './db';
 import { eventName } from './news';
 import type { PublicMatch, PublicState, PublicTournament } from './publicView';
+import { sendNotice, type NoticeDeps } from './notify';
 import { clockOf, dateRange } from './share';
 import { buildSocial } from './social';
 
@@ -51,9 +52,7 @@ export function resultsText(t: PublicTournament, site: string, base: string): st
   return `${head}${record}${medalsTxt}${othersTxt}\nRESULTADOS POR JUGADOR:\n${players}\n${redes}\nWeb en directo: ${site}/directo\n`;
 }
 
-export interface ResultsDeps {
-  fetchImpl?: typeof fetch;
-}
+export type ResultsDeps = NoticeDeps;
 
 /**
  * Cada minuto: el domingo a las 15:00 de Madrid (y hasta `windowMin` después) envía un correo por cada torneo que se juega ese fin de semana
@@ -74,13 +73,7 @@ export async function sendWeekendResults(db: Db, state: PublicState, now: Date, 
     if (t.startDate > m.date || daysBetween(t.startDate, m.date) > 3 || last < m.date || !t.matches.some((x) => x.state === 'finished')) continue;
     const key = `weekend-results:${t.id}:${m.date}`;
     if (kvGet(db, key)) continue;
-    const res = await (deps.fetchImpl ?? fetch)(`https://formsubmit.co/ajax/${c.email}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json', origin: new URL(site).origin, referer: `${site}/contacto` },
-      body: JSON.stringify({ nombre: 'Resultados', apellidos: 'Finde', email: c.email, mensaje: resultsText(t, site, base), _subject: `Resultados del finde · ${t.name} · mensaje para redes`, _template: 'table', _captcha: 'false' }),
-      signal: AbortSignal.timeout(60_000),
-    });
-    if (!res.ok) throw new Error(`Correo de resultados del finde: HTTP ${res.status}`);
+    await sendNotice(c.email, `Resultados del finde · ${t.name} · mensaje para redes`, resultsText(t, site, base), deps, { nombre: 'Resultados', apellidos: 'Finde' });
     kvSet(db, key, { at: nowIso() });
     sent++;
   }

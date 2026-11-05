@@ -116,7 +116,7 @@ setInterval(() => engine?.prune(), 24 * 3600_000).unref();
 // Captura del itinerario en vivo 15 min antes de empezar cada torneo con gente del club: se comprueba cada minuto con lo ya guardado.
 if (settings.itinerary.email) {
   console.log(`Itinerario en vivo: captura por correo ${settings.itinerary.minutesBefore} min antes de cada torneo.`);
-  setInterval(() => void sendDueItineraries(db, cachedPublicState(db).state, new Date()).catch((e) => console.error('itinerario', e)), 60_000).unref();
+  setInterval(() => void sendDueItineraries(db, cachedPublicState(db).state, new Date(), { mailer }).catch((e) => console.error('itinerario', e)), 60_000).unref();
 }
 // Los avisos dependen de la hora: se comprueban cada minuto con lo ya guardado (sin pedir nada a badminton.es).
 if (sender) setInterval(() => void notifyUpcoming(db, new Date(), sender).catch((e) => console.error('push', e)), 60_000).unref();
@@ -124,13 +124,13 @@ if (sender) setInterval(() => void notifyUpcoming(db, new Date(), sender).catch(
 // Previa del finde por correo: los jueves a las 15:00 (Madrid), quién juega y a qué hora son los primeros partidos de la UVa.
 if (settings.weekendPreview.email) {
   console.log('Previa del finde por correo: jueves a las 15:00 (Madrid).');
-  setInterval(() => void sendWeekendPreviews(db, cachedPublicState(db).state, new Date()).catch((e) => console.error('previa del finde', e)), 60_000).unref();
+  setInterval(() => void sendWeekendPreviews(db, cachedPublicState(db).state, new Date(), { mailer }).catch((e) => console.error('previa del finde', e)), 60_000).unref();
 }
 
 // Resultados del finde por correo: los domingos a las 15:00 (Madrid), resultados del club y mensaje para redes.
 if (settings.weekendResults.email) {
   console.log('Resultados del finde por correo: domingo a las 15:00 (Madrid).');
-  setInterval(() => void sendWeekendResults(db, cachedPublicState(db).state, new Date()).catch((e) => console.error('resultados del finde', e)), 60_000).unref();
+  setInterval(() => void sendWeekendResults(db, cachedPublicState(db).state, new Date(), { mailer }).catch((e) => console.error('resultados del finde', e)), 60_000).unref();
 }
 
 // Resumen semanal a quien se ha suscrito (domingos a las 21:00 de Madrid) y limpieza diaria de suscripciones sin confirmar.

@@ -2,6 +2,7 @@ import { settings } from './config';
 import { daysBetween } from './dates';
 import { type Db, kvGet, kvSet, nowIso } from './db';
 import type { PublicMatch, PublicState, PublicTournament } from './publicView';
+import { sendNotice, type NoticeDeps } from './notify';
 import { clockOf, dateRange, dayLabel } from './share';
 
 /**
@@ -47,9 +48,7 @@ export function previewText(t: PublicTournament, site: string): string {
   return `${head}\nPRIMER PARTIDO DEL CLUB: ${day(first)} ${timeOf(first)} · ${first.players.join(' / ')} · ${what(first)}\n\nPRIMER PARTIDO DE CADA JUGADOR (por orden de hora):\n${lines.join('\n')}\n\nPartidos de la UVa programados en total: ${upcoming.length}.\n${foot}`;
 }
 
-export interface PreviewDeps {
-  fetchImpl?: typeof fetch;
-}
+export type PreviewDeps = NoticeDeps;
 
 /**
  * Cada minuto: si es la hora de la previa (jueves a las 15:00 de Madrid, dentro de la ventana) envía un correo por cada torneo con jugadores de la UVa
@@ -69,13 +68,7 @@ export async function sendWeekendPreviews(db: Db, state: PublicState, now: Date,
     if (d < 1 || d > 4 || (t.matches.length === 0 && t.entries.length === 0)) continue;
     const key = `weekend-preview:${t.id}:${t.startDate}`;
     if (kvGet(db, key)) continue;
-    const res = await (deps.fetchImpl ?? fetch)(`https://formsubmit.co/ajax/${c.email}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json', origin: new URL(site).origin, referer: `${site}/contacto` },
-      body: JSON.stringify({ nombre: 'Previa', apellidos: 'Finde', email: c.email, mensaje: previewText(t, site), _subject: `Previa del finde · ${t.name} · primeros partidos de la UVa`, _template: 'table', _captcha: 'false' }),
-      signal: AbortSignal.timeout(60_000),
-    });
-    if (!res.ok) throw new Error(`Correo de la previa del finde: HTTP ${res.status}`); // sin marcar: se reintenta el minuto siguiente dentro de la ventana
+    await sendNotice(c.email, `Previa del finde · ${t.name} · primeros partidos de la UVa`, previewText(t, site), deps, { nombre: 'Previa', apellidos: 'Finde' }); // sin marcar si falla: se reintenta el minuto siguiente dentro de la ventana
     kvSet(db, key, { at: nowIso() });
     sent++;
   }

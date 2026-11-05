@@ -206,7 +206,7 @@ badminton.es no avisa cuando publica algo, así que el servidor lo detecta con l
 
 ## Suscripciones por correo: «Sigue al club» (06/11/2026)
 - Sección en Inicio (`src/components/home/FollowSection.tsx`, ancla `#sigue`): correo + todo el equipo o jugadores concretos + casilla de consentimiento (con campo trampa anti-robots). Servidor: `server/src/subscribers.ts` (alta, confirmación, baja; tokens HMAC; doble confirmación), `digest.ts` (resumen semanal por persona: partidos ganados/perdidos, medallas, noticias y próximos torneos de lo que sigue; vacío = no se envía), `mailer.ts` (Brevo o Resend por API). Rutas: `GET/POST /api/public/subscribe`, páginas `/suscripcion/confirmar` y `/suscripcion/baja` (con botón; POST = baja con un clic).
-- **Pendiente del club:** conectar el proveedor de correo (guía en `docs/CORREO_SUSCRIPCIONES.md`); hasta entonces el formulario avisa de que se está activando. Texto legal actualizado.
+- Activado el 06/11/2026 con Brevo (`MAIL_PROVIDER`, `BREVO_API_KEY`, `MAIL_FROM` en Render; el bloqueo de IP de Brevo hay que tenerlo desactivado porque Render no tiene IP fija). Guía en `docs/CORREO_SUSCRIPCIONES.md`; el diagnóstico está en `/api/health?full=1 › mailConfig`. Los correos automáticos al club (previa del jueves, resultados del domingo, capturas del itinerario) usan también este proveedor si está configurado y, si no, FormSubmit (`notify.ts`). Texto legal actualizado.
 
 ## Cambio de nombre de la cuenta de GitHub (22/10/2026)
 - La cuenta pasó de `Pablo06Casta` a `badmiton-uva`: la web está ahora en https://badmiton-uva.github.io/UVa-b-dminton/ (la dirección antigua da 404) y Web-cerca en https://badmiton-uva.github.io/PABLO-APP/.

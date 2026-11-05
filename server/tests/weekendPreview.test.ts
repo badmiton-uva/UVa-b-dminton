@@ -75,3 +75,21 @@ describe('previa del finde por correo', () => {
     expect(await sendWeekendPreviews(memDb(), state(T), new Date('2026-11-05T14:03:00Z'))).toBe(0);
   });
 });
+
+describe('envío por el proveedor de correo', () => {
+  it('con proveedor configurado se usa en lugar de FormSubmit (y si falla, no se marca como enviado)', async () => {
+    const sent: { to: string; subject: string; text: string }[] = [];
+    const mailer = { send: async (m: { to: string; subject: string; text: string }) => void sent.push(m) };
+    const db = memDb();
+    let formsubmit = 0;
+    const fetchImpl = (async () => (formsubmit++, { ok: true, status: 200 })) as unknown as typeof fetch;
+    expect(await sendWeekendPreviews(db, state(T), new Date('2026-11-05T14:01:00Z'), { mailer, fetchImpl })).toBe(1);
+    expect(formsubmit).toBe(0);
+    expect(sent[0]).toMatchObject({ to: 'club@example.com', subject: 'Previa del finde · Master Gijón · primeros partidos de la UVa' });
+    expect(sent[0].text).toContain('PRIMER PARTIDO DEL CLUB');
+    const broken = { send: async () => { throw new Error('Brevo: HTTP 401'); } };
+    const db2 = memDb();
+    await expect(sendWeekendPreviews(db2, state(T), new Date('2026-11-05T14:02:00Z'), { mailer: broken })).rejects.toThrow('Brevo');
+    expect(await sendWeekendPreviews(db2, state(T), new Date('2026-11-05T14:03:00Z'), { mailer })).toBe(1); // se reintenta
+  });
+});

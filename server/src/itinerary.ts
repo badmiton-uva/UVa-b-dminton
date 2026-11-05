@@ -4,6 +4,7 @@ import { settings } from './config';
 import { todayIn } from './dates';
 import { type Db, nowIso } from './db';
 import type { PublicMatch, PublicState, PublicTournament } from './publicView';
+import { sendNotice, type NoticeDeps } from './notify';
 import { clip, clockOf, dayLabel, esc, FONT_FILES, fit, LOGO, upper, wrap } from './share';
 
 /**
@@ -251,9 +252,7 @@ export const renderItineraryStories = (t: PublicTournament, date: string, now: D
 
 /* ------------------------------ Envío 15 min antes ------------------------------ */
 
-export interface ItineraryDeps {
-  fetchImpl?: typeof fetch;
-}
+export type ItineraryDeps = NoticeDeps;
 
 /** Hora del primer partido del día (de todo el torneo si hay orden de juego; si no, el primero del club). */
 function firstStart(db: Db, t: PublicTournament, date: string): number | undefined {
@@ -292,13 +291,7 @@ export async function sendDueItineraries(db: Db, state: PublicState, now: Date, 
     const site = settings.siteUrl || 'https://badmiton-uva.github.io/UVa-b-dminton';
     const links = storyIds.map((sid, i) => `  Historia ${i + 1}${stories.length > 1 ? ` de ${stories.length}` : ''}: ${captureUrl(sid)}`).join('\n');
     const msg = `Itinerario en vivo de ${t.name} (${dayLabel(date)}): el primer partido empieza a las ${when}. La captura se ha tomado ${Math.max(0, Math.round(untilMs / 60_000))} min antes.\n\nPARA HISTORIAS (vertical 1080×1920${stories.length > 1 ? `, ${stories.length} imágenes en orden` : ''}):\n${links}\n\nVERSIÓN ANCHA (como en la web): ${captureUrl(id)}\n\nVer en directo: ${site}/directo`;
-    const res = await (deps.fetchImpl ?? fetch)(`https://formsubmit.co/ajax/${c.email}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json', origin: new URL(site).origin, referer: `${site}/contacto` },
-      body: JSON.stringify({ nombre: 'Itinerario', apellidos: 'En vivo', email: c.email, mensaje: msg, _subject: 'HISTORIAS RRSS DIRECTO TORNEOS JORNADA', _template: 'table', _captcha: 'false' }),
-      signal: AbortSignal.timeout(60_000),
-    });
-    if (!res.ok) throw new Error(`Correo del itinerario: HTTP ${res.status}`); // sin guardar: se reintenta el minuto siguiente dentro de la ventana
+    await sendNotice(c.email, 'HISTORIAS RRSS DIRECTO TORNEOS JORNADA', msg, deps, { nombre: 'Itinerario', apellidos: 'En vivo' }); // sin guardar si falla: se reintenta el minuto siguiente dentro de la ventana
     const ins = db.prepare('insert into captures(id, day_key, tournament_guid, created_at, png) values(?,?,?,?,?)');
     ins.run(id, key, t.id, nowIso(), wide);
     stories.forEach((p, i) => ins.run(storyIds[i], `${key}|h${i + 1}`, t.id, nowIso(), p));

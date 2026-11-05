@@ -188,6 +188,10 @@ badminton.es no avisa cuando publica algo, así que el servidor lo detecta con l
 - Para un torneo con gente del club que empieza en ≤ 7 días (`DAY_LOOKAHEAD_DAYS`), el orden de juego se lee ya (antes, solo desde 3 días antes) y cada 10 min (`NEAR_DAY_MINUTES`); el día antes, cada 5 min. Cuadros cada 15 y 10 min, información cada 20 y 15, inscripciones cada ≤ 30 min y, si aún no hay cuadros, se mira cada 30 min (antes 2 h). Sin nadie del club el comportamiento es el de siempre. El ritmo sigue respetando ≥ 2,5 s entre peticiones.
 - La web se refresca cada 2 min cuando hay partidos de la UVa pendientes en los próximos 7 días (cada minuto el día de juego, cada 5 min sin nada cerca), y al instante cuando el servidor avisa de un cambio.
 
+## Previa del finde por correo (`server/src/weekendPreview.ts`)
+- Cada jueves a las 15:00 (Madrid), el servidor envía a `WEEKEND_PREVIEW_EMAIL` (por defecto pablitocastaneda06@gmail.com; `off` lo desactiva) un correo por cada torneo con jugadores de la UVa que empieza en 1-4 días: el primer partido del club, el primer partido de cada jugador por orden de hora (estimada y oficial, prueba, pista, rival y «con quién» en dobles) y cuántos más tiene programados. Si aún no hay orden de juego, lo dice y lista a los inscritos.
+- Se comprueba cada minuto y vale hasta 3 h después de las 15:00 (por si Render reinicia); una sola vez por torneo (`kv weekend-preview:<torneo>:<fecha>`, visible en `/api/health?full=1 › mail`). Día y hora configurables (`WEEKEND_PREVIEW_WEEKDAY`, `WEEKEND_PREVIEW_HOUR`). FormSubmit: la dirección debe estar activada (ya lo está para el Publicista).
+
 ## Cambio de nombre de la cuenta de GitHub (22/10/2026)
 - La cuenta pasó de `Pablo06Casta` a `badmiton-uva`: la web está ahora en https://badmiton-uva.github.io/UVa-b-dminton/ (la dirección antigua da 404) y Web-cerca en https://badmiton-uva.github.io/PABLO-APP/.
 - El servidor autoriza siempre las dos direcciones (`CLUB_ORIGINS` en `server/src/config.ts`); antes solo la antigua y por eso la web nueva no recibía noticias ni datos en vivo.

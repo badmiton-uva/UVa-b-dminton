@@ -12,6 +12,7 @@ import { cachedPublicState } from './publicView';
 import { draftChronicles } from './chronicle';
 import { sendDueItineraries } from './itinerary';
 import { purgeGhostEra } from './patterns';
+import { sendWeekendPreviews } from './weekendPreview';
 import { notifyUpcoming, realSender } from './push';
 import { RealSource } from './source';
 import { OfficialLiveReaders } from './officialReaders';
@@ -113,6 +114,12 @@ if (settings.itinerary.email) {
 }
 // Los avisos dependen de la hora: se comprueban cada minuto con lo ya guardado (sin pedir nada a badminton.es).
 if (sender) setInterval(() => void notifyUpcoming(db, new Date(), sender).catch((e) => console.error('push', e)), 60_000).unref();
+
+// Previa del finde por correo: los jueves a las 15:00 (Madrid), quién juega y a qué hora son los primeros partidos de la UVa.
+if (settings.weekendPreview.email) {
+  console.log('Previa del finde por correo: jueves a las 15:00 (Madrid).');
+  setInterval(() => void sendWeekendPreviews(db, cachedPublicState(db).state, new Date()).catch((e) => console.error('previa del finde', e)), 60_000).unref();
+}
 
 const shutdown = () => {
   stopping = true;

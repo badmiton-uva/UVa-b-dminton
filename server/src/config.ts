@@ -110,6 +110,14 @@ export const settings = {
     minutesBefore: num(process.env.ITINERARY_MINUTES_BEFORE, 15),
     baseUrl: (process.env.PUBLIC_BASE_URL ?? process.env.RENDER_EXTERNAL_URL ?? 'https://club-uva-badminton.onrender.com').replace(/\/$/, ''),
   },
+  /** Previa del finde por correo: cada jueves a las 15:00 (Madrid) se envía quién juega y a qué hora son los primeros partidos de la UVa en los torneos que empiezan en los próximos días. `WEEKEND_PREVIEW_EMAIL=off` lo desactiva. */
+  weekendPreview: {
+    email: process.env.WEEKEND_PREVIEW_EMAIL === 'off' ? '' : process.env.WEEKEND_PREVIEW_EMAIL ?? 'pablitocastaneda06@gmail.com',
+    weekday: num(process.env.WEEKEND_PREVIEW_WEEKDAY, 4), // 0 = domingo … 4 = jueves
+    hour: num(process.env.WEEKEND_PREVIEW_HOUR, 15),
+    /** Minutos desde la hora en que sigue valiendo el envío (por si el servidor se reinicia justo entonces). */
+    windowMin: num(process.env.WEEKEND_PREVIEW_WINDOW_MINUTES, 180),
+  },
   /** Limita las consultas a la API pública por IP y minuto. */
   publicRatePerMinute: num(process.env.PUBLIC_RATE_PER_MINUTE, 120),
   /** Días que se conservan las entradas del registro de cambios. */

@@ -136,13 +136,10 @@ export const settings = {
     from: (process.env.MAIL_FROM ?? '').trim(),
     fromName: (process.env.MAIL_FROM_NAME ?? '').trim() || 'Club Bádminton UVa',
   },
-  /** Suscripciones por correo: tope de personas, y resumen semanal (por defecto, domingos a las 21:00 de Madrid). */
+  /** Suscripciones por correo: tope de personas, máximo de correos al día por persona y mínimo entre dos correos de confirmación a la misma dirección. */
   subscriptions: {
     max: num(process.env.SUBSCRIBERS_MAX, 3000),
-    digestWeekday: num(process.env.DIGEST_WEEKDAY, 0),
-    digestHour: num(process.env.DIGEST_HOUR, 21),
-    digestWindowMin: num(process.env.DIGEST_WINDOW_MINUTES, 180),
-    /** Mínimo entre dos correos de confirmación a la misma dirección. */
+    maxPerDay: num(process.env.SUBSCRIBER_MAILS_PER_DAY, 2),
     cooldownMin: num(process.env.SUBSCRIBE_COOLDOWN_MINUTES, 10),
   },
   /** Limita las consultas a la API pública por IP y minuto. */

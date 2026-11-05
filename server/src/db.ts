@@ -212,6 +212,14 @@ create table if not exists subscribers (
   pending_at text,
   last_digest_date text
 );
+-- Qué avisos de torneo se han enviado ya a cada persona (a media jornada y al final): evita repetirlos.
+create table if not exists subscriber_mails (
+  subscriber_id integer not null references subscribers(id) on delete cascade,
+  tournament_guid text not null,
+  kind text not null,
+  sent_at text not null,
+  primary key (subscriber_id, tournament_guid, kind)
+);
 create table if not exists subscriber_players (
   subscriber_id integer not null references subscribers(id) on delete cascade,
   player_id integer not null,

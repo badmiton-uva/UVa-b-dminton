@@ -15,7 +15,7 @@ import { purgeGhostEra } from './patterns';
 import { sendWeekendPreviews } from './weekendPreview';
 import { sendWeekendResults } from './weekendResults';
 import { realMailer } from './mailer';
-import { sendDigests } from './digest';
+import { sendUpdates } from './updates';
 import { pruneSubscribers } from './subscribers';
 import { notifyUpcoming, realSender } from './push';
 import { RealSource } from './source';
@@ -133,9 +133,9 @@ if (settings.weekendResults.email) {
   setInterval(() => void sendWeekendResults(db, cachedPublicState(db).state, new Date(), { mailer }).catch((e) => console.error('resultados del finde', e)), 60_000).unref();
 }
 
-// Resumen semanal a quien se ha suscrito (domingos a las 21:00 de Madrid) y limpieza diaria de suscripciones sin confirmar.
+// Avisos a quien se ha suscrito (a media jornada y al final de cada torneo, agrupados) y limpieza diaria de suscripciones sin confirmar.
 if (mailer) {
-  setInterval(() => void sendDigests(db, cachedPublicState(db).state, new Date(), mailer).catch((e) => console.error('resúmenes', e)), 60_000).unref();
+  setInterval(() => void sendUpdates(db, cachedPublicState(db).state, new Date(), mailer).catch((e) => console.error('avisos de torneo', e)), 60_000).unref();
   setInterval(() => pruneSubscribers(db), 24 * 3600_000).unref();
 }
 

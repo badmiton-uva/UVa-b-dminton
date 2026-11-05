@@ -6,7 +6,7 @@ import type { PublicState } from './publicView';
 
 /**
  * Suscripciones por correo con doble confirmación: la persona indica su correo y a quién quiere seguir (todo el equipo o jugadores concretos), recibe un
- * mensaje para confirmar y, desde entonces, un resumen semanal. Cada correo lleva un enlace para darse de baja (se borra todo). Solo se puede seguir a
+ * mensaje para confirmar y, desde entonces, como mucho dos correos por torneo (a media jornada y al final). Cada correo lleva un enlace para darse de baja (se borra todo). Solo se puede seguir a
  * jugadores públicos (con consentimiento).
  */
 export class SubscribeError extends Error {
@@ -70,7 +70,7 @@ const mailFooter = 'Club Bádminton Universidad de Valladolid';
 function confirmMail(db: Db, id: number, email: string, what: string, change: boolean): { subject: string; text: string; html: string } {
   const link = confirmUrl(db, id);
   const intro = change ? 'Has pedido cambiar lo que sigues en el Club Bádminton UVa' : 'Has pedido recibir por correo las noticias y resultados del Club Bádminton UVa';
-  const text = `${intro}: ${what}.\n\nPara confirmarlo, abre este enlace (si no has sido tú, ignora este mensaje y no pasará nada):\n${link}\n\n${mailFooter}`;
+  const text = `${intro}: ${what}.\n\nTe escribiremos como mucho dos veces por torneo: a media jornada, para contarte cómo van, y al final, con los resultados.\n\nPara confirmarlo, abre este enlace (si no has sido tú, ignora este mensaje y no pasará nada):\n${link}\n\n${mailFooter}`;
   const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#14132f"><h2 style="color:#2f2c64">Confirma tu suscripción</h2><p>${intro}: <strong>${escapeHtml(what)}</strong>.</p><p><a href="${link}" style="display:inline-block;background:#2f2c64;color:#fff;padding:12px 20px;text-decoration:none;border-radius:4px">Confirmar</a></p><p style="font-size:13px;color:#566072">Si no has sido tú, ignora este mensaje y no pasará nada.<br>${mailFooter}</p></div>`;
   return { subject: change ? 'Confirma el cambio · Club Bádminton UVa' : 'Confirma tu suscripción · Club Bádminton UVa', text, html };
 }

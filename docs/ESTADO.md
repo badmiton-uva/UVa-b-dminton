@@ -232,3 +232,8 @@ badminton.es no avisa cuando publica algo, así que el servidor lo detecta con l
 
 ## Sección «Nuestros jugadores» (Inicio, `PlayersSection.tsx`)
 - Lista a las personas públicas del servidor (consentimiento) con tarjeta (foto o silueta, nombre, función, categoría) y sus medallas de los torneos leídos (las parejas cuentan para las dos personas). Para poner foto, función o información: añadir la ficha en `src/data/players.json` (`{ id, name, role, photo: "/images/jugadores/nombre.webp", info, consent: true }`) y subir la foto a `public/images/jugadores/`; se une por nombre con el del servidor.
+
+## 7/11/2026 · Directo con el día siguiente y rivales
+- Un torneo de varios días (másters sábado+domingo) lee también el orden de juego del día siguiente mientras está en juego (cada 10 min como mínimo), de modo que el domingo se ve en Directo (pestaña del día) desde el sábado.
+- `render.yaml` tenía `PUBLIC_OPPONENTS=none`, lo que ocultaba a los rivales pese a la decisión del 24/10. Ahora `names`. Si Render no lo toma solo, cambiar la variable `PUBLIC_OPPONENTS` a `names` en el panel de Render.
+- Web: `mergeLive` ya no deja que un torneo de servidor vacío (p. ej. «TEST») pise al real con la misma fecha y ciudad.

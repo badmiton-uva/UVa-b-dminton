@@ -23,7 +23,7 @@ services:
       - key: AUTO_ROSTER_CONSENT
         value: declared
       - key: PUBLIC_OPPONENTS
-        value: none
+        value: names
       - key: PUBLIC_DRAW_NAMES
         value: initials
       # Copia de la base de datos en Upstash (gratis): evita perder los datos en cada reinicio. Valores de tu cuenta de Upstash.

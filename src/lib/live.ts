@@ -15,6 +15,10 @@ const sameCity = (a?: string, b?: string) => {
  */
 export function mergeLive(base: Tournament[], live: LiveState): Tournament[] {
   const out = [...base];
+  // Peso de los datos en vivo ya aplicados a cada torneo del calendario: si dos torneos del servidor coinciden en
+  // fecha y localidad (p. ej. uno de prueba vacío), gana el que trae más datos y el vacío nunca lo pisa.
+  const weight = new Map<number, number>();
+  const weightOf = (lt: LiveState['tournaments'][number]) => lt.matches.length * 1000 + (lt.progress?.total ?? 0) + (lt.entries?.length ?? 0);
   for (const lt of live.tournaments) {
     const patch: Partial<Tournament> = {
       liveId: lt.id,
@@ -32,6 +36,9 @@ export function mergeLive(base: Tournament[], live: LiveState): Tournament[] {
     };
     const i = out.findIndex((o) => o.startDate === lt.startDate && sameCity(o.city, lt.city));
     if (i >= 0) {
+      const w = weightOf(lt);
+      if ((weight.get(i) ?? -1) >= w) continue;
+      weight.set(i, w);
       out[i] = { ...out[i], ...patch, endDate: out[i].endDate ?? lt.endDate, venue: out[i].venue ?? lt.venue };
     } else if (lt.startDate) {
       out.push({

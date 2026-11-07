@@ -21,6 +21,15 @@ describe('mezcla con los datos en directo', () => {
     expect(out[0]).toMatchObject({ id: 'fesba-1', liveId: 'AAAAAAAA-1', players: ['Ana Prueba'], clubParticipants: 1 });
     expect(out[1].matches).toBeUndefined();
   });
+  it('si dos torneos del servidor coinciden en fecha y localidad, el vacío no pisa al que tiene datos', () => {
+    const real = state().tournaments[0];
+    const vacio = { ...real, id: 'BBBBBBBB-2', name: 'TEST', uvaPlayers: [], matches: [], progress: undefined };
+    for (const tournaments of [[real, vacio], [vacio, real]]) {
+      const [out] = mergeLive([t('fesba-1', '2026-11-07', 'Valladolid')], { ...state(), tournaments });
+      expect(out.liveId).toBe('AAAAAAAA-1');
+      expect(out.matches).toHaveLength(1);
+    }
+  });
   it('empareja aunque la localidad lleve la provincia entre paréntesis', () => {
     const out = mergeLive([t('fesba-1', '2026-11-21', 'Tudela de Duero (Valladolid)')], state({ startDate: '2026-11-21', city: 'Tudela de Duero' }));
     expect(out[0].liveId).toBe('AAAAAAAA-1');

@@ -138,3 +138,16 @@ describe('cuántos partidos faltan antes del siguiente del club', () => {
   });
 });
 
+
+describe('partido entre dos parejas del club', () => {
+  it('se publica con el rival como «Jugador/a UVa» si el rival del club no es público, y se oculta si el no público es compañero de una persona pública', async () => {
+    const { toPublicMatch } = await import('../src/publicView');
+    const mk = (a: { rosterId?: number }[], b: { rosterId?: number }[]) =>
+      ({ key: 'k', tournamentGuid: 'g', status: 'scheduled', sets: [], sides: [{ players: a.map((p, i) => ({ name: `A${i} Uno Dos`, uva: true, ...p })) }, { players: b.map((p, i) => ({ name: `B${i} Uno Dos`, uva: true, ...p })) }] }) as never;
+    const pub = new Set([1, 2]);
+    const ok = toPublicMatch(mk([{ rosterId: 1 }, { rosterId: 2 }], [{}, {}]), pub);
+    expect(ok?.opponent).toBe('Jugador/a UVa / Jugador/a UVa');
+    expect(ok?.players).toHaveLength(2);
+    expect(toPublicMatch(mk([{ rosterId: 1 }, {}], [{}, {}]), pub)).toBeUndefined();
+  });
+});

@@ -150,14 +150,19 @@ const stateOf = (s: StoredMatch['status']): PublicMatch['state'] => (s === 'on_c
 export type StartHints = Pick<Estimate, 'starts'> & Partial<Pick<Estimate, 'delayMin' | 'basis' | 'startsEarly'>>;
 
 export function toPublicMatch(m: StoredMatch, publicIds: Set<number>, hints: StartHints = { starts: {} }, names?: Map<number, string>, tournamentName?: string): PublicMatch | undefined {
-  const uvaOn = m.sides.map((s) => s.players.filter((p) => p.uva));
+  const isPublic = (p: { rosterId?: number }) => p.rosterId !== undefined && publicIds.has(p.rosterId);
+  const uvaOn = m.sides.map((s) => s.players.filter((p) => p.uva && isPublic(p)));
+  const hidden = m.sides.map((s) => s.players.filter((p) => p.uva && !isPublic(p)));
   const all = uvaOn.flat();
-  // Si alguien del club en el partido no es público, no se publica el partido entero.
-  if (all.length === 0 || all.some((p) => p.rosterId === undefined || !publicIds.has(p.rosterId))) return undefined;
-
-  const bothSides = uvaOn[0].length > 0 && uvaOn[1].length > 0;
+  // Si alguien del club en el partido no es público, no se publica el partido entero, salvo cuando juega en el lado contrario
+  // a la gente pública (partido entre dos parejas del club): entonces sale como rival «Jugador/a UVa», sin identificarlo (igual que en los cuadros).
+  if (all.length === 0 || hidden.some((h, i) => h.length > 0 && uvaOn[i].length > 0)) return undefined;
+  const bothSides = false;
   const uvaSide = uvaOn[0].length > 0 ? 0 : 1;
-  const other = m.sides[1 - uvaSide].players.map((p) => nameAndFirstSurname(p.name)).join(' / ');
+  const hiddenRival = hidden[1 - uvaSide].length > 0;
+  const other = hiddenRival
+    ? m.sides[1 - uvaSide].players.map((p) => (p.uva ? 'Jugador/a UVa' : nameAndFirstSurname(p.name))).join(' / ')
+    : m.sides[1 - uvaSide].players.map((p) => nameAndFirstSurname(p.name)).join(' / ');
   const flip = (s: [number, number]): [number, number] => (uvaSide === 0 ? s : [s[1], s[0]]);
   const sets = m.sets.map(flip);
 
@@ -170,7 +175,7 @@ export function toPublicMatch(m: StoredMatch, publicIds: Set<number>, hints: Sta
     id: m.key,
     event: [m.eventCode ?? m.drawName, m.round].filter(Boolean).join(' · ') || undefined,
     players: all.map((p) => (p.rosterId !== undefined ? names?.get(p.rosterId) : undefined) ?? p.name),
-    opponent: !bothSides && settings.opponents === 'names' && other && rivalVisible(tournamentName, m.drawName, m.eventCode) ? other : undefined,
+    opponent: hiddenRival ? other : !bothSides && settings.opponents === 'names' && other && rivalVisible(tournamentName, m.drawName, m.eventCode) ? other : undefined,
     state: stateOf(m.status),
     date: m.date,
     time: m.plannedClock,

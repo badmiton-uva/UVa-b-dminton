@@ -55,6 +55,7 @@ export function DayAgenda({ matches, now, highlight }: { matches: UvaMatch[]; no
 
   const nowMin = madrid(now).minutes;
   const isToday = selected.date === today;
+  const tomorrow = new Date(Date.parse(`${today}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
   const hours: number[] = [];
   for (let h = selected.firstHour; h <= selected.lastHour; h++) hours.push(h);
   const first = selected.items.find((i) => i.match.state !== 'finished');
@@ -70,7 +71,7 @@ export function DayAgenda({ matches, now, highlight }: { matches: UvaMatch[]; no
           ))}
         </div>
       )}
-      <h3 className="dayplan__title">{dayName.format(new Date(`${selected.date}T12:00:00Z`))}{isToday && <span className="dayplan__today">Hoy</span>}</h3>
+      <h3 className="dayplan__title">{dayName.format(new Date(`${selected.date}T12:00:00Z`))}{isToday && <span className="dayplan__today">Hoy</span>}{selected.date === tomorrow && <span className="dayplan__today">Mañana</span>}</h3>
       <ol className="dayplan__grid">
         {hours.map((h) => {
           const items = selected.items.filter((i) => Math.floor(i.at / 60) === h);

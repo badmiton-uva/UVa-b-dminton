@@ -216,7 +216,7 @@ export class SyncEngine {
         for (const date of wanted) {
           const k = `day:${t.guid}:${date}`;
           const lastOk = ms(kvGet<{ at: string }>(this.db, `ok:${k}`)?.at);
-          jobs.push({ key: k, kind: 'day', guid: t.guid, date, phase, due: lastOk ? lastOk + (phase === 'live' && date !== today ? Math.max(iv.day, 10 * 60_000) : iv.day) : 0, rank: phase === 'live' ? (date === today ? 0 : 1) : phase === 'recent' ? 2 : 1 });
+          jobs.push({ key: k, kind: 'day', guid: t.guid, date, phase, due: lastOk ? lastOk + (phase === 'live' && date !== today ? Math.max(iv.day, 5 * 60_000) : iv.day) : 0, rank: phase === 'live' ? (date === today ? 0 : 1) : phase === 'recent' ? 2 : 1 });
         }
       }
     }

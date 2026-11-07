@@ -55,5 +55,9 @@ export function buildAgenda(matches: UvaMatch[]): AgendaDay[] {
 
 /** Día que se muestra al abrir: hoy si hay partidos; si no, el próximo; si no, el último. */
 export function pickDay(days: AgendaDay[], today: string): string | undefined {
-  return days.find((d) => d.date === today)?.date ?? days.find((d) => d.date > today)?.date ?? days.at(-1)?.date;
+  const hoy = days.find((d) => d.date === today);
+  const siguiente = days.find((d) => d.date > today);
+  // Si hoy ya no queda nada por jugar y hay un día siguiente publicado (el domingo de un máster), se abre ese.
+  if (hoy && hoy.items.every((i) => i.match.state === 'finished') && siguiente) return siguiente.date;
+  return hoy?.date ?? siguiente?.date ?? days.at(-1)?.date;
 }

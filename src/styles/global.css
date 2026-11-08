@@ -4054,3 +4054,25 @@ abbr.est--big {
 .follow__ok { margin: 0; padding: 16px 18px; background: var(--white); border-left: 5px solid #1f9d55; }
 .follow__error { margin: 0; color: var(--danger); font-weight: 700; }
 .follow__note { margin: 0; padding: 10px 14px; background: var(--white); border-left: 5px solid var(--violet); color: var(--muted); }
+
+/* Directo: partidos ya jugados agrupados y compactos */
+.dayplan__done { margin: 0 0 1rem; border: 1px solid var(--gray-200); border-radius: var(--radius); background: var(--white); }
+.dayplan__done > summary { cursor: pointer; padding: .7rem .9rem; font-weight: 700; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; list-style: none; }
+.dayplan__done > summary::-webkit-details-marker { display: none; }
+.dayplan__done > summary::before { content: '▸'; transition: transform .15s; }
+.dayplan__done[open] > summary::before { transform: rotate(90deg); }
+.dayplan__done-sum { margin-left: auto; font-weight: 400; font-size: .85em; opacity: .75; }
+.dayplan__done-list { list-style: none; margin: 0; padding: 0 .5rem .5rem; }
+.dayplan__done-row { display: grid; grid-template-columns: 3.2rem 1fr auto; gap: .6rem; align-items: center; padding: .4rem .4rem; border-top: 1px solid var(--gray-200); font-size: .9rem; }
+.dayplan__done-row.is-highlight { outline: 2px solid currentColor; border-radius: 8px; }
+.dayplan__done-who small { opacity: .65; }
+.dayplan__done-res { display: inline-flex; gap: .4rem; align-items: center; white-space: nowrap; }
+.dayplan__pending { margin: 0 0 .5rem; font-size: 1rem; display: flex; gap: .5rem; align-items: center; }
+.dayplan__done-row { grid-template-columns: 2.8rem 1fr; }
+.dayplan__done-res { grid-column: 2; justify-self: start; font-size: .85rem; }
+.dayplan__done-score { font-variant-numeric: tabular-nums; color: var(--muted); }
+.dayplan__done-row > time { font-weight: 700; }
+@media (min-width: 720px) {
+  .dayplan__done-row { grid-template-columns: 3.2rem 1fr auto; }
+  .dayplan__done-res { grid-column: auto; justify-self: end; }
+}

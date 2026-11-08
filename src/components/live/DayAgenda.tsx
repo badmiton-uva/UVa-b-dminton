@@ -38,6 +38,21 @@ function Item({ item, highlight }: { item: AgendaItem; highlight?: boolean }) {
   );
 }
 
+/** Partido ya jugado en una sola línea: hora, quién, rival, resultado. */
+function DoneRow({ item, highlight }: { item: AgendaItem; highlight?: boolean }) {
+  const m = item.match;
+  return (
+    <li id={`partido-${m.id}`} className={`dayplan__done-row${m.outcome ? ` dayplan__done-row--${m.outcome}` : ''}${highlight ? ' is-highlight' : ''}`}>
+      <time>{at(item.at)}</time>
+      <span className="dayplan__done-who">{m.players.join(' / ')}{m.opponent && <span> vs {m.opponent}</span>}{m.event && <small> · {m.event}</small>}</span>
+      <span className="dayplan__done-res">
+        {m.outcome && <strong className={`dayplan__outcome dayplan__outcome--${m.outcome}`}>{m.outcome === 'win' ? 'V' : 'D'}</strong>}
+        {m.score ? <span className="dayplan__done-score">{m.score}</span> : <span>—</span>}
+      </span>
+    </li>
+  );
+}
+
 /** Calendario diario: los partidos de la UVa colocados por hora, con la hora estimada (o la programada) y el resultado al terminar. */
 export function DayAgenda({ matches, now, highlight }: { matches: UvaMatch[]; now: Date; highlight?: string | null }) {
   const days = useMemo(() => buildAgenda(matches), [matches]);
@@ -56,9 +71,12 @@ export function DayAgenda({ matches, now, highlight }: { matches: UvaMatch[]; no
   const nowMin = madrid(now).minutes;
   const isToday = selected.date === today;
   const tomorrow = new Date(Date.parse(`${today}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  const pending = selected.items.filter((i) => i.match.state !== 'finished');
+  const done = selected.items.filter((i) => i.match.state === 'finished');
+  const first = pending[0];
   const hours: number[] = [];
-  for (let h = selected.firstHour; h <= selected.lastHour; h++) hours.push(h);
-  const first = selected.items.find((i) => i.match.state !== 'finished');
+  if (pending.length > 0) for (let h = Math.floor(pending[0].at / 60); h <= Math.floor(pending[pending.length - 1].at / 60); h++) hours.push(h);
+  const doneOpen = pending.length === 0 || (!!highlight && done.some((i) => i.match.id === highlight));
 
   return (
     <div className="dayplan">
@@ -72,9 +90,21 @@ export function DayAgenda({ matches, now, highlight }: { matches: UvaMatch[]; no
         </div>
       )}
       <h3 className="dayplan__title">{dayName.format(new Date(`${selected.date}T12:00:00Z`))}{isToday && <span className="dayplan__today">Hoy</span>}{selected.date === tomorrow && <span className="dayplan__today">Mañana</span>}</h3>
+      {done.length > 0 && (
+        <details className="dayplan__done" open={doneOpen}>
+          <summary>
+            Ya jugados <span className="count-pill">{done.length}</span>
+            <span className="dayplan__done-sum">{done.filter((i) => i.match.outcome === 'win').length} victorias · {done.filter((i) => i.match.outcome === 'loss').length} derrotas</span>
+          </summary>
+          <ul className="dayplan__done-list">{done.map((i) => <DoneRow key={i.match.id} item={i} highlight={i.match.id === highlight} />)}</ul>
+        </details>
+      )}
+      {pending.length > 0 ? (
+        <>
+          <h4 className="dayplan__pending">Por jugar <span className="count-pill">{pending.length}</span></h4>
       <ol className="dayplan__grid">
         {hours.map((h) => {
-          const items = selected.items.filter((i) => Math.floor(i.at / 60) === h);
+          const items = pending.filter((i) => Math.floor(i.at / 60) === h);
           const isNow = isToday && Math.floor(nowMin / 60) === h;
           return (
             <li key={h} className={`dayplan__hour${isNow ? ' is-now' : ''}`}>
@@ -91,6 +121,10 @@ export function DayAgenda({ matches, now, highlight }: { matches: UvaMatch[]; no
           );
         })}
       </ol>
+        </>
+      ) : (
+        <p className="empty">No quedan partidos por jugar este día.</p>
+      )}
       {isToday && first && <p className="dayplan__next">Siguiente partido: <strong>{first.match.players.join(' / ')}</strong> a las {at(first.at)}</p>}
     </div>
   );

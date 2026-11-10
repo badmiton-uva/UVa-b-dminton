@@ -237,3 +237,7 @@ badminton.es no avisa cuando publica algo, así que el servidor lo detecta con l
 - Un torneo de varios días (másters sábado+domingo) lee también el orden de juego del día siguiente mientras está en juego (cada 10 min como mínimo), de modo que el domingo se ve en Directo (pestaña del día) desde el sábado.
 - `render.yaml` tenía `PUBLIC_OPPONENTS=none`, lo que ocultaba a los rivales pese a la decisión del 24/10. Ahora `names`. Si Render no lo toma solo, cambiar la variable `PUBLIC_OPPONENTS` a `names` en el panel de Render.
 - Web: `mergeLive` ya no deja que un torneo de servidor vacío (p. ej. «TEST») pise al real con la misma fecha y ciudad.
+
+## 10/11/2026 · Torneos «TEST» de la federación
+- La federación tiene un torneo de prueba («TEST Absoluto Gijon», misma fecha y ciudad que el real) con cuadros y resultados inventados. El servidor lo leyó como un torneo más y el correo «Resultados del finde» del 8/11 contó un oro falso (Enrique, IM-n4). Ahora `EXCLUDED_TOURNAMENTS` excluye por defecto los nombres con la palabra «TEST» (además de la Liga Nacional): ni se leen ni se muestran ni entran en correos, imágenes o noticias. Si Render tiene definida esa variable, añadir `|(^|\s)test(\s|$)`.
+- Resultado real de Gijón: 1 oro (doble femenino DF-n4: Marta Fernández y Cristina Rivera), 2 bronces (Enrique Fernández y Pablo Martín, IM-n4), 15 victorias y 12 derrotas.

@@ -54,8 +54,8 @@ export const settings = {
   confirmGapMs: num('CONFIRM_GAP_SECONDS', 45) * 1000,
   /** Cada cuánto se mira solo la lista de jugadores de un torneo cercano para detectar nuevas inscripciones (minutos): ver `identifyEvery`. */
   watchListMinutes: { far: num('WATCH_LIST_FAR_MINUTES', 30), soon: num('WATCH_LIST_SOON_MINUTES', 15), imminent: num('WATCH_LIST_IMMINENT_MINUTES', 10) },
-  /** Torneos que no se leen ni se muestran: se excluyen por nombre (expresión regular, sin distinguir mayúsculas). */
-  excludedTournaments: new RegExp(process.env.EXCLUDED_TOURNAMENTS ?? 'liga\\s+nacional', 'i'),
+  /** Torneos que no se leen ni se muestran (la Liga y los torneos de prueba «TEST …» de la federación, cuyos resultados son inventados): se excluyen por nombre (expresión regular, sin distinguir mayúsculas). */
+  excludedTournaments: new RegExp(process.env.EXCLUDED_TOURNAMENTS ?? 'liga\\s+nacional|(^|\\s)test(\\s|$)', 'i'),
   /** Torneos absolutos del calendario oficial que empiezan en los próximos N días se leen una vez para ver quién del club juega (0 = desactivado). */
   followCalendarDays: num('FOLLOW_CALENDAR_DAYS', 30),
   followRefreshMinutes: min('FOLLOW_REFRESH_MINUTES', 360),

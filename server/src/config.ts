@@ -41,6 +41,8 @@ export const settings = {
     'https://www.badminton.es/ranking/category.aspx?id=54365&category=5939&ogid=9FC486AA-1B7C-4D65-9E14-3C75412D4773',
     'https://www.badminton.es/ranking/category.aspx?id=54365&category=5940&ogid=9FC486AA-1B7C-4D65-9E14-3C75412D4773',
     'https://www.badminton.es/ranking/category.aspx?id=54365&category=5789&ogid=9FC486AA-1B7C-4D65-9E14-3C75412D4773',
+    'https://www.badminton.es/ranking/category.aspx?id=54365&category=5790&ogid=9FC486AA-1B7C-4D65-9E14-3C75412D4773',
+    'https://www.badminton.es/ranking/category.aspx?id=54365&category=5791&ogid=9FC486AA-1B7C-4D65-9E14-3C75412D4773',
   ].join(',')).split(',').map((u) => u.trim()).filter(Boolean),
   /** Inscripción y admisión de la gente del club en torneos futuros: cada cuántos minutos se revisan las listas de inscritos y hasta cuántos días antes. */
   entries: { days: num('ENTRIES_DAYS', 90), far: min('ENTRIES_FAR_MINUTES', 120), soon: min('ENTRIES_SOON_MINUTES', 60), imminent: min('ENTRIES_IMMINENT_MINUTES', 30) },

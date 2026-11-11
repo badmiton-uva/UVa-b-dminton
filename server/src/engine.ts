@@ -27,6 +27,13 @@ import { buildStoredMatch, type ClubEntrants, diffMatch, findClubEntrants, match
 
 const DEFAULT_TZ = 'Europe/Madrid';
 
+/** Ranking oficial de la federación: puestos y puntos de la gente del club por prueba (solo se publican los jugadores públicos). */
+export interface RankingSnapshot {
+  updatedAt: string;
+  date?: string;
+  categories: { name: string; rows: { name: string; rank: number; prevRank?: number; points: number; tournaments?: number }[] }[];
+}
+
 export type JobKind = 'roster' | 'discover' | 'info' | 'draws' | 'day' | 'calendar' | 'entries' | 'identify' | 'verify' | 'history' | 'liga';
 
 /**
@@ -429,8 +436,22 @@ export class SyncEngine {
    */
   private async buildRoster(now: Date) {
     const found = new Map<string, { name: string; playerPath: string; birthYear?: number }>();
+    const categories: RankingSnapshot['categories'] = [];
+    let rankingDate: string | undefined;
     for (const url of settings.rankingUrls) {
-      for (const c of await this.src.rankingPlayers!(url, 2)) if (isUvaClub(c.club)) found.set(c.playerPath, c);
+      if (this.src.rankingTable) {
+        const table = await this.src.rankingTable(url, 2);
+        const mine = table.rows.filter((c) => isUvaClub(c.club));
+        for (const c of mine) found.set(c.playerPath, c);
+        rankingDate ??= table.date;
+        if (table.title && mine.length > 0) categories.push({ name: table.title, rows: mine.map((c) => ({ name: titleCase(c.name), rank: c.rank, prevRank: c.prevRank, points: c.points, tournaments: c.tournaments })) });
+      } else {
+        for (const c of await this.src.rankingPlayers!(url, 2)) if (isUvaClub(c.club)) found.set(c.playerPath, c);
+      }
+    }
+    if (categories.length > 0) {
+      kvSet(this.db, 'ranking', { updatedAt: now.toISOString(), date: rankingDate, categories } satisfies RankingSnapshot);
+      invalidatePublicState(this.db);
     }
     const today = now.toISOString().slice(0, 10);
     let created = 0;

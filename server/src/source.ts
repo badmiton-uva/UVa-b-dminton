@@ -2,7 +2,7 @@ import { type FinderRow, finderPageBody, parseFesbaCalendar, parseFinder } from 
 import type { FesbaCalendarRow } from './calendar';
 import { httpConfig } from './config-http';
 import { type Priority, PoliteClient } from './http';
-import type { RankingCandidate } from './rankingParse';
+import type { RankingCandidate, RankingRow } from './rankingParse';
 import type { BracketRound, DrawInfo, MatchRow, StandingRow, TournamentInfo } from './model';
 import type { LigaFixture, LigaStanding } from './ligaParse';
 
@@ -10,6 +10,8 @@ import type { LigaFixture, LigaStanding } from './ligaParse';
 export interface RosterReaders {
   /** Jugadores de una categoría del ranking oficial con su club. */
   rankingPlayers(url: string, p: Priority): Promise<RankingCandidate[]>;
+  /** Tabla completa de una categoría del ranking (puestos y puntos). */
+  rankingTable?(url: string, p: Priority): Promise<{ title?: string; date?: string; rows: RankingRow[] }>;
   /** GUID del perfil oficial de un jugador, desde su ficha del ranking. */
   rankingProfile(playerPath: string, p: Priority): Promise<string | undefined>;
 }
@@ -99,6 +101,7 @@ export class RealSource implements OfficialSource {
   leagueEditions?: LiveReaders['leagueEditions'];
   leagueDraw?: LiveReaders['leagueDraw'];
 
+  rankingTable = (u: string, p: Priority) => (this.live?.rankingTable ? this.live.rankingTable(u, p) : missing());
   rankingPlayers = (u: string, p: Priority) => (this.live?.rankingPlayers ? this.live.rankingPlayers(u, p) : missing());
   rankingProfile = (path: string, p: Priority) => (this.live?.rankingProfile ? this.live.rankingProfile(path, p) : missing());
   profile = (g: string, p: Priority) => (this.live ? this.live.profile(g, p) : missing());

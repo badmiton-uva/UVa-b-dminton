@@ -4076,3 +4076,20 @@ abbr.est--big {
   .dayplan__done-row { grid-template-columns: 3.2rem 1fr auto; }
   .dayplan__done-res { grid-column: auto; justify-self: end; }
 }
+
+/* Inicio: ranking nacional del club */
+.rk__tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1rem; }
+.rk__tabs button { padding: .5rem .9rem; border: 2px solid var(--uva); background: var(--white); color: var(--uva); font: inherit; font-weight: 700; cursor: pointer; border-radius: var(--radius); }
+.rk__tabs button.is-active { background: var(--uva); color: var(--white); }
+.rk__tabs button:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.rk__wrap { overflow-x: auto; background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); }
+.rk__table { width: 100%; border-collapse: collapse; font-size: 1rem; }
+.rk__table th { text-align: left; padding: .7rem .9rem; background: var(--uva); color: var(--white); font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; }
+.rk__table td { padding: .75rem .9rem; border-top: 1px solid var(--gray-200); }
+.rk__pos { font-family: var(--font-sport, inherit); font-size: 1.4rem; font-weight: 800; color: var(--uva); white-space: nowrap; }
+.rk__num { text-align: right !important; font-variant-numeric: tabular-nums; }
+.rk__trend { white-space: nowrap; color: var(--muted); font-weight: 700; }
+.rk__trend.up { color: #17753a; }
+.rk__trend.down { color: var(--danger); }
+.rk__name { font-weight: 600; }
+@media (max-width: 560px) { .rk__hide { display: none; } .rk__table td, .rk__table th { padding: .65rem .6rem; } }

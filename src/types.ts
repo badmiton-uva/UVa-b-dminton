@@ -261,10 +261,19 @@ export interface LiveState {
   news?: NewsItem[];
   /** Partidos ganados/perdidos en torneos que no figuran en `tournaments` (últimas temporadas): solo para la gráfica de trayectoria. */
   history?: { id: string; name: string; date: string; won: number; lost: number }[];
+  /** Ranking oficial del club por prueba (solo jugadores públicos). */
+  ranking?: LiveRanking;
   tournaments: {
     id: string; name: string; startDate?: string; endDate?: string; city?: string; venue?: string; level?: string;
     officialUrl?: string; manual?: boolean; uvaPlayers: string[]; matches: UvaMatch[]; progress?: LiveProgress; draws: LiveDraw[]; results?: UvaResult[]; record?: UvaRecord; entries?: TournamentEntry[]; checkedAt?: string; stale: boolean;
   }[];
+}
+
+export interface LiveRanking {
+  updatedAt: string;
+  /** Semana del ranking oficial, p. ej. «43-2026». */
+  date?: string;
+  categories: { name: string; rows: { name: string; rank: number; prevRank?: number; points: number; tournaments?: number }[] }[];
 }
 
 /** Noticia del club (se escribe a mano en `src/data/news.json`). */

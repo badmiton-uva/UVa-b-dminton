@@ -241,3 +241,8 @@ badminton.es no avisa cuando publica algo, así que el servidor lo detecta con l
 ## 10/11/2026 · Torneos «TEST» de la federación
 - La federación tiene un torneo de prueba («TEST Absoluto Gijon», misma fecha y ciudad que el real) con cuadros y resultados inventados. El servidor lo leyó como un torneo más y el correo «Resultados del finde» del 8/11 contó un oro falso (Enrique, IM-n4). Ahora `EXCLUDED_TOURNAMENTS` excluye por defecto los nombres con la palabra «TEST» (además de la Liga Nacional): ni se leen ni se muestran ni entran en correos, imágenes o noticias. Si Render tiene definida esa variable, añadir `|(^|\s)test(\s|$)`.
 - Resultado real de Gijón: 1 oro (doble femenino DF-n4: Marta Fernández y Cristina Rivera), 2 bronces (Enrique Fernández y Pablo Martín, IM-n4), 15 victorias y 12 derrotas.
+
+## 11/11/2026 · Ranking nacional del club en Inicio
+- Sección «Ranking nacional del club» en Inicio (entre noticias y «Sobre el club»): por prueba (individual M/F, dobles M/F/mixto), puesto, evolución (▲▼ respecto al puesto anterior), puntos y torneos computados. Solo aparece si el servidor tiene datos.
+- Servidor: `buildRoster` (cada 24 h, `AUTO_ROSTER_HOURS`) lee ahora la tabla completa de cada categoría del ranking oficial (`rankingParse.parseRankingTable`), guarda en kv `ranking` solo las filas del club y `publicView.buildPublicRanking` publica únicamente a las personas públicas (campo `ranking` del estado público). `RANKING_URLS` incluye ya las 5 pruebas (5939 IM, 5940 IF, 5789 DM, 5790 DF, 5791 DX). Si Render define `RANKING_URLS`, añadir `category=5790` y `category=5791`.
+- La federación actualiza el ranking una vez por semana (fecha «43-2026» en la cabecera de la tabla).

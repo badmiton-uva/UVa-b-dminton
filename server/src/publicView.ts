@@ -6,6 +6,8 @@ import { type Db, kvGet } from './db';
 import { tournamentPhase } from './policy';
 import { findByNameLoose, listPlayers, type Player } from './roster';
 import { isUvaClub } from './uva';
+import { nameTokens } from './text';
+import type { RankingSnapshot } from './engine';
 import type { Estimate } from './estimate';
 import { uvaRecord, uvaResults, type PublicRecord, type PublicResult } from './results';
 import { buildAutoNews, type PublicNews } from './news';
@@ -128,6 +130,15 @@ export interface PublicState {
   news: PublicNews[];
   /** Partidos ganados y perdidos por el club en torneos que no figuran arriba (≈ últimas temporadas): solo para la gráfica de trayectoria. */
   history: PublicHistory[];
+  /** Ranking oficial actualizado de los jugadores públicos del club, por prueba. */
+  ranking?: PublicRanking;
+}
+
+export interface PublicRanking {
+  updatedAt: string;
+  /** Semana del ranking oficial, p. ej. «43-2026». */
+  date?: string;
+  categories: { name: string; rows: { name: string; rank: number; prevRank?: number; points: number; tournaments?: number }[] }[];
 }
 
 export interface PublicHistory {
@@ -331,6 +342,27 @@ function addAhead(db: Db, guid: string, matches: PublicMatch[], starts: Record<s
   }
 }
 
+/** Ranking oficial del club, solo con las personas públicas (con su nombre de la lista, no el del ranking). */
+function buildPublicRanking(db: Db, publicList: Player[]): PublicRanking | undefined {
+  const snap = kvGet<RankingSnapshot>(db, 'ranking');
+  if (!snap) return undefined;
+  const tokens = (n: string) => new Set(nameTokens(n));
+  const categories = snap.categories
+    .map((c) => ({
+      name: c.name,
+      rows: c.rows
+        .map((r) => {
+          const full = tokens(r.name);
+          const p = publicList.find((x) => { const t = nameTokens(x.name); return t.length >= 2 && t.every((y) => full.has(y)); });
+          return p ? { ...r, name: p.name } : undefined;
+        })
+        .filter((r): r is NonNullable<typeof r> => !!r)
+        .sort((a, b) => a.rank - b.rank),
+    }))
+    .filter((c) => c.rows.length > 0);
+  return categories.length > 0 ? { updatedAt: snap.updatedAt, date: snap.date, categories } : undefined;
+}
+
 export function buildPublicState(db: Db, now = new Date()): PublicState {
   const players = listPlayers(db);
   const publicPlayers = new Map(players.filter((p) => p.public).map((p) => [p.id, p]));
@@ -402,7 +434,8 @@ export function buildPublicState(db: Db, now = new Date()): PublicState {
   // Torneos con partidos en los perfiles que no están entre los publicados arriba (solo para la gráfica de trayectoria).
   const listed = new Set(tournaments.map((t) => t.id));
   const history: PublicHistory[] = [...hist.values()].filter((r) => !listed.has(r.g)).map((r) => ({ id: r.g, name: r.n, date: r.d, won: r.w, lost: r.l })).sort((a, b) => a.date.localeCompare(b.date));
-  const version = createHash('sha1').update(JSON.stringify([publicList, tournaments, news, history])).digest('hex').slice(0, 12);
+  const ranking = buildPublicRanking(db, [...publicPlayers.values()]);
+  const version = createHash('sha1').update(JSON.stringify([publicList, tournaments, news, history, ranking])).digest('hex').slice(0, 12);
   return {
     generatedAt: now.toISOString(),
     officialReadEnabled: settings.officialReadEnabled,
@@ -413,6 +446,7 @@ export function buildPublicState(db: Db, now = new Date()): PublicState {
     tournaments,
     news,
     history,
+    ranking,
   };
 }
 

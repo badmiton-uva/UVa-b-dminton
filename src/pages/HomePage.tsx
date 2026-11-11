@@ -6,6 +6,7 @@ import { LiveNow } from '../components/home/LiveNow';
 import { PlayersSection } from '../components/home/PlayersSection';
 import { MatchesSection } from '../components/home/MatchesSection';
 import { NewsSection } from '../components/home/NewsSection';
+import { RankingSection } from '../components/home/RankingSection';
 import { QuickContact } from '../components/home/QuickContact';
 import { UpcomingSection } from '../components/home/UpcomingSection';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -17,6 +18,7 @@ export function HomePage() {
       <Hero />
       <LiveNow />
       <NewsSection />
+      <RankingSection />
       <AboutSection />
       <PlayersSection />
       <AchievementsSection />

@@ -246,3 +246,8 @@ badminton.es no avisa cuando publica algo, así que el servidor lo detecta con l
 - Sección «Ranking nacional del club» en Inicio (entre noticias y «Sobre el club»): por prueba (individual M/F, dobles M/F/mixto), puesto, evolución (▲▼ respecto al puesto anterior), puntos y torneos computados. Solo aparece si el servidor tiene datos.
 - Servidor: `buildRoster` (cada 24 h, `AUTO_ROSTER_HOURS`) lee ahora la tabla completa de cada categoría del ranking oficial (`rankingParse.parseRankingTable`), guarda en kv `ranking` solo las filas del club y `publicView.buildPublicRanking` publica únicamente a las personas públicas (campo `ranking` del estado público). `RANKING_URLS` incluye ya las 5 pruebas (5939 IM, 5940 IF, 5789 DM, 5790 DF, 5791 DX). Si Render define `RANKING_URLS`, añadir `category=5790` y `category=5791`.
 - La federación actualiza el ranking una vez por semana (fecha «43-2026» en la cabecera de la tabla).
+
+## 11/11/2026 · Copia remota (Upstash) reducida
+- Upstash devolvió «reached current Fixed plan limits» (la copia enviaba la base entera, varios MB, cada pocos minutos) y se perdieron los suscriptores en un reinicio de Render.
+- Ahora `remoteBackup.shrinkSnapshot` guarda solo lo que no se puede volver a leer de la federación: jugadores y consentimientos, suscriptores y envíos, push, crónicas, patrones de aprendizaje, torneos, partidos terminados, historial y `kv` no volátil. Se vacían cuadros, orden de juego, estimaciones, registros y caché (se rehacen solos). La huella ignora marcas de lectura, así que solo se envía si cambia algo importante. Cada 30 min y al apagarse.
+- Pendiente de decidir: copia principal cifrada en un repositorio privado de GitHub (sin depender de Upstash).

@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { createHash } from 'node:crypto';
+import { DatabaseSync } from 'node:sqlite';
 import type { Db } from './db';
 
 /**
@@ -62,7 +63,38 @@ let lastHash = '';
 /** Estado de la copia remota, para el diagnóstico (`/api/health?full=1`). */
 export const backupState: { configured: boolean; restored?: boolean; lastSavedAt?: string; lastError?: string } = { configured: false };
 
-/** Guarda una copia comprimida de la base de datos. Si no ha cambiado desde la última, no envía nada. */
+/**
+ * La copia remota guarda solo lo que NO se puede volver a leer de la federación: jugadores y consentimientos, suscriptores y sus envíos,
+ * avisos push, crónicas, patrones de aprendizaje, torneos, partidos ya terminados y el historial. Lo demás (cuadros, orden de juego,
+ * estimaciones, registros, partidos por jugar, caché) se reconstruye solo al arrancar. Así la copia pesa pocos KB y los planes gratuitos bastan.
+ */
+const EMPTY_TABLES = ['slots', 'estimate_log', 'estimate_starts', 'changes', 'fetch_log', 'push_sent', 'draws', 'captures', 'entrants', 'entries'];
+/** Claves de `kv` que son caché o marcas de lectura y cambian a cada minuto: no se copian (se rehacen). */
+const VOLATILE_KV = /^(ok:|estimate:|rebuilt:|nodraws:|needs-rebuild:|identify:|entries:|liga$|calendar|ranking$|history$|last_error$|roster_ok$|discover_ok$|backfill_at$)/;
+const KEEP_KV_MAX = 50_000; // caracteres: lo más grande es caché
+
+/** Reduce una copia de la base de datos a lo imprescindible. Devuelve una huella del contenido que no cambia por marcas de lectura. */
+export function shrinkSnapshot(file: string): string {
+  const s = new DatabaseSync(file);
+  try {
+    for (const t of EMPTY_TABLES) s.exec(`delete from ${t}`);
+    s.exec("delete from matches where state not in ('finished', 'walkover', 'retired')");
+    for (const r of s.prepare('select k, length(v) n from kv').all() as unknown as { k: string; n: number }[]) {
+      if (VOLATILE_KV.test(r.k) || r.n > KEEP_KV_MAX) s.prepare('delete from kv where k = ?').run(r.k);
+    }
+    const h = createHash('sha1');
+    for (const t of ['kv', 'players', 'subscribers', 'subscriber_players', 'subscriber_mails', 'push_subs', 'chronicles', 'day_patterns', 'tournaments', 'tournament_players', 'history_matches', 'matches']) {
+      const cols = (s.prepare(`pragma table_info(${t})`).all() as unknown as { name: string }[]).map((c) => c.name).filter((c) => !/^(updated_at|last_seen_at|seen_at|checked_at)$/.test(c));
+      for (const row of s.prepare(`select ${cols.join(', ')} from ${t} order by rowid`).all()) h.update(JSON.stringify(row));
+    }
+    s.exec('vacuum');
+    return h.digest('hex');
+  } finally {
+    s.close();
+  }
+}
+
+/** Guarda una copia comprimida y reducida de la base de datos. Si lo importante no ha cambiado desde la última, no envía nada. */
 export async function saveSnapshot(db: Db, c: RemoteConfig | undefined = remoteConfig()): Promise<boolean> {
   backupState.configured = !!c;
   if (!c) return false;
@@ -70,9 +102,9 @@ export async function saveSnapshot(db: Db, c: RemoteConfig | undefined = remoteC
   try {
     fs.rmSync(tmp, { force: true });
     db.exec(`vacuum into '${tmp.replace(/'/g, "''")}'`);
-    const b64 = zlib.gzipSync(fs.readFileSync(tmp), { level: 9 }).toString('base64');
-    const hash = createHash('sha1').update(b64).digest('hex');
+    const hash = shrinkSnapshot(tmp);
     if (hash === lastHash) return false;
+    const b64 = zlib.gzipSync(fs.readFileSync(tmp), { level: 9 }).toString('base64');
     const chunks = Math.ceil(b64.length / CHUNK);
     for (let i = 0; i < chunks; i++) await cmd(c, ['SET', `${PREFIX}${i}`, b64.slice(i * CHUNK, (i + 1) * CHUNK)]);
     await cmd(c, ['SET', `${PREFIX}meta`, JSON.stringify({ chunks, at: new Date().toISOString() })]);

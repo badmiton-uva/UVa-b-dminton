@@ -61,8 +61,8 @@ if (process.env.ROSTER_CSV && listPlayers(db).length === 0) {
 backup();
 setInterval(backup, 24 * 3600_000).unref();
 if (remoteConfig()) {
-  console.log('Copia remota (Upstash) activada: se guarda cada 5 minutos si hay cambios.');
-  setInterval(() => void saveSnapshot(db), 5 * 60_000).unref();
+  console.log('Copia remota (Upstash) activada: se guarda cada 30 minutos (y al apagarse) si hay cambios.');
+  setInterval(() => void saveSnapshot(db), 30 * 60_000).unref();
   setTimeout(() => void saveSnapshot(db), 60_000).unref();
 }
 const hub = new Hub(db);

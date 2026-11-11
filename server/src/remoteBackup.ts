@@ -7,7 +7,7 @@ import type { Db } from './db';
 
 /**
  * Copia de la base de datos en un Redis externo gratuito (Upstash, API REST). Sirve para hostings sin disco persistente
- * (p. ej. Render gratuito): al arrancar sin base de datos se restaura la última copia, y cada pocos minutos se guarda otra.
+ * (p. ej. Render gratuito): al arrancar sin base de datos se restaura la última copia, y cada 30 minutos (y al apagarse) se guarda otra, para no agotar el plan gratuito.
  * Se configura con UPSTASH_REDIS_REST_URL y UPSTASH_REDIS_REST_TOKEN. Sin ellas, no hace nada.
  */
 const CHUNK = 600_000; // caracteres por clave: por debajo del límite de petición del plan gratuito

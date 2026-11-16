@@ -251,3 +251,11 @@ badminton.es no avisa cuando publica algo, así que el servidor lo detecta con l
 - Upstash devolvió «reached current Fixed plan limits» (la copia enviaba la base entera, varios MB, cada pocos minutos) y se perdieron los suscriptores en un reinicio de Render.
 - Ahora `remoteBackup.shrinkSnapshot` guarda solo lo que no se puede volver a leer de la federación: jugadores y consentimientos, suscriptores y envíos, push, crónicas, patrones de aprendizaje, torneos, partidos terminados, historial y `kv` no volátil. Se vacían cuadros, orden de juego, estimaciones, registros y caché (se rehacen solos). La huella ignora marcas de lectura, así que solo se envía si cambia algo importante. Cada 30 min y al apagarse.
 - Pendiente de decidir: copia principal cifrada en un repositorio privado de GitHub (sin depender de Upstash).
+
+## 16/11/2026 · Copia de seguridad gratuita en GitHub (sin Upstash)
+- Upstash seguía bloqueado («Fixed plan limits») y los suscriptores se perdían en cada reinicio de Render. Nueva copia sin pagar ni crear cuentas:
+  1. El servidor ofrece `GET /api/public/backup`: lo imprescindible (ver `remoteBackup.shrinkSnapshot`) comprimido y **cifrado** con AES-256-GCM (`backupCrypto.ts`, clave derivada de `ADMIN_TOKEN`, que no sale del servidor). Mismo contenido → mismo archivo.
+  2. El workflow `.github/workflows/backup.yml` (cada 30 min, con el `GITHUB_TOKEN` del propio repositorio) la guarda en la rama `backup-data` (un solo commit con `club.bin` y 7 copias diarias en `diarias/`) solo si ha cambiado.
+  3. Al arrancar con el disco vacío, el servidor restaura `club.bin` desde `raw.githubusercontent.com/badmiton-uva/UVa-b-dminton/backup-data/club.bin` (`BACKUP_URL`; «off» lo desactiva) y, si no hay, desde Upstash.
+- Seguridad: el repositorio es público, pero el contenido va cifrado (los correos no aparecen en claro); quien tenga `ADMIN_TOKEN` puede descifrarlo, así que debe ser largo y secreto. Si una restauración falla (copia ilegible), el servidor deja de ofrecer copias nuevas hasta reiniciar, para no pisar la buena con una base vacía.
+- Límite: se pueden perder los cambios de los últimos ≤30 min antes de un reinicio.

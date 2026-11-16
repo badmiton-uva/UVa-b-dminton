@@ -1,0 +1,53 @@
+name: Copia de seguridad
+
+# Cada 30 minutos descarga del servidor la copia CIFRADA de lo imprescindible (suscriptores, jugadores y consentimientos, aprendizaje,
+# partidos terminados) y la guarda en la rama «backup-data». El servidor la restaura sola al arrancar (si Render reinicia y borra el disco).
+# Es gratis y no necesita cuentas ni claves: usa el GITHUB_TOKEN del propio repositorio. El contenido va cifrado con una clave que solo
+# conoce el servidor (derivada de ADMIN_TOKEN); la rama conserva un único commit con la última copia y 7 copias diarias.
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: copia-de-seguridad
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      SERVER_URL: ${{ vars.VITE_API_URL || 'https://club-uva-badminton.onrender.com' }}
+    steps:
+      - name: Descargar la copia cifrada del servidor
+        run: |
+          mkdir -p work && cd work
+          # El servidor gratuito puede estar dormido: se reintenta hasta 6 veces.
+          curl -fsS --retry 6 --retry-delay 20 --retry-all-errors --max-time 120 "$SERVER_URL/api/public/backup" -o new.bin
+          test "$(stat -c%s new.bin)" -gt 100
+          head -c 4 new.bin | grep -q '^CUB1'
+
+      - name: Guardar en la rama backup-data (solo si ha cambiado)
+        working-directory: work
+        run: |
+          git init -q -b backup-data .
+          git config user.name "copia-de-seguridad"
+          git config user.email "actions@users.noreply.github.com"
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          mkdir -p diarias
+          if git fetch -q --depth 1 origin backup-data 2>/dev/null; then
+            git checkout -q FETCH_HEAD -- diarias 2>/dev/null || true
+            # Si la copia nueva es igual que la guardada, no hay nada que hacer.
+            if git show FETCH_HEAD:club.bin 2>/dev/null | cmp -s - new.bin; then
+              echo "Sin cambios."; exit 0
+            fi
+          fi
+          cp new.bin club.bin
+          cp new.bin "diarias/club-$(date -u +%F).bin"
+          ls -1 diarias | sort | head -n -7 | while read f; do rm -f "diarias/$f"; done
+          git add club.bin diarias
+          git commit -q -m "Copia cifrada $(date -u +%FT%TZ)"
+          git push -q --force origin backup-data

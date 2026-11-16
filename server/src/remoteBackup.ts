@@ -5,6 +5,7 @@ import zlib from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import type { Db } from './db';
+import { openBackup, sealBackup } from './backupCrypto';
 
 /**
  * Copia de la base de datos en un Redis externo gratuito (Upstash, API REST). Sirve para hostings sin disco persistente
@@ -38,10 +39,38 @@ async function cmd(c: RemoteConfig, args: (string | number)[]): Promise<unknown>
   return body.result;
 }
 
-/** Restaura la última copia en `file` si todavía no existe. Devuelve true si se restauró. */
-export async function restoreIfMissing(file: string, c: RemoteConfig | undefined = remoteConfig()): Promise<boolean> {
+/** Dónde deja GitHub Actions la copia cifrada (rama `backup-data`, repositorio público). Se puede cambiar con BACKUP_URL; «off» la desactiva. */
+export const BACKUP_URL_DEFAULT = 'https://raw.githubusercontent.com/badmiton-uva/UVa-b-dminton/backup-data/club.bin';
+
+export interface GithubRestore { url?: string; secret?: string; fetchImpl?: typeof fetch }
+
+/** Restaura la copia cifrada guardada en GitHub. `true` si se restauró; `false` si no hay copia; lanza si hay copia pero no se pudo leer. */
+async function restoreFromGithub(file: string, g: GithubRestore): Promise<boolean> {
+  const url = g.url ?? process.env.BACKUP_URL ?? BACKUP_URL_DEFAULT;
+  if (!g.secret || url === 'off') return false;
+  const res = await (g.fetchImpl ?? fetch)(url, { signal: AbortSignal.timeout(30_000) });
+  if (res.status === 404) return false; // todavía no hay copia
+  if (!res.ok) throw new Error(`GitHub: HTTP ${res.status}`);
+  const plain = zlib.gunzipSync(openBackup(Buffer.from(await res.arrayBuffer()), g.secret));
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, plain);
+  backupState.restoredFrom = 'github';
+  return true;
+}
+
+/** Restaura la última copia en `file` si todavía no existe: primero la de GitHub, después la de Upstash. Devuelve true si se restauró. */
+export async function restoreIfMissing(file: string, c: RemoteConfig | undefined = remoteConfig(), g: GithubRestore = { secret: process.env.ADMIN_TOKEN }): Promise<boolean> {
   backupState.configured = !!c;
-  if (!c || fs.existsSync(file)) return false;
+  if (fs.existsSync(file)) return false;
+  try {
+    if (await restoreFromGithub(file, g)) { backupState.restored = true; return true; }
+  } catch (e) {
+    // Hay copia pero no se pudo leer: no se publica una copia nueva (vacía) encima de la buena hasta reiniciar.
+    backupState.restoreFailed = true;
+    backupState.lastError = `restaurar (GitHub): ${(e as Error).message}`;
+    console.error('No se pudo restaurar la copia de GitHub:', (e as Error).message);
+  }
+  if (!c) return false;
   try {
     const meta = (await cmd(c, ['GET', `${PREFIX}meta`])) as string | null;
     if (!meta) return false;
@@ -51,6 +80,8 @@ export async function restoreIfMissing(file: string, c: RemoteConfig | undefined
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, zlib.gunzipSync(Buffer.from(b64, 'base64')));
     backupState.restored = true;
+    backupState.restoredFrom = 'upstash';
+    backupState.restoreFailed = false;
     return true;
   } catch (e) {
     backupState.lastError = `restaurar: ${(e as Error).message}`;
@@ -61,7 +92,7 @@ export async function restoreIfMissing(file: string, c: RemoteConfig | undefined
 
 let lastHash = '';
 /** Estado de la copia remota, para el diagnóstico (`/api/health?full=1`). */
-export const backupState: { configured: boolean; restored?: boolean; lastSavedAt?: string; lastError?: string } = { configured: false };
+export const backupState: { configured: boolean; restored?: boolean; restoredFrom?: 'github' | 'upstash'; restoreFailed?: boolean; lastSavedAt?: string; lastServedAt?: string; lastError?: string } = { configured: false };
 
 /**
  * La copia remota guarda solo lo que NO se puede volver a leer de la federación: jugadores y consentimientos, suscriptores y sus envíos,
@@ -93,6 +124,36 @@ export function shrinkSnapshot(file: string): string {
     s.close();
   }
 }
+
+let essential: { hash: string; gz: Buffer; at: number } | undefined;
+
+/** Copia reducida y comprimida de la base de datos (solo se rehace si lo importante ha cambiado). */
+export function essentialSnapshot(db: Db): { hash: string; gz: Buffer } {
+  const tmp = path.join(os.tmpdir(), `club-essential-${process.pid}.sqlite`);
+  try {
+    fs.rmSync(tmp, { force: true });
+    db.exec(`vacuum into '${tmp.replace(/'/g, "''")}'`);
+    const hash = shrinkSnapshot(tmp);
+    if (essential?.hash === hash) return essential;
+    essential = { hash, gz: zlib.gzipSync(fs.readFileSync(tmp), { level: 9 }), at: Date.now() };
+    return essential;
+  } finally {
+    fs.rmSync(tmp, { force: true });
+  }
+}
+
+let served: { at: number; blob: Buffer } | undefined;
+/**
+ * Copia cifrada para GitHub Actions (`GET /api/public/backup`). Se reutiliza 10 minutos. `undefined` si no hay clave (ADMIN_TOKEN) o si la
+ * restauración falló (para no pisar con una copia vacía la que está guardada).
+ */
+export function servedBackup(db: Db, secret: string, now = Date.now()): Buffer | undefined {
+  if (!secret || backupState.restoreFailed) return undefined;
+  if (!served || now - served.at > 10 * 60_000) served = { at: now, blob: sealBackup(essentialSnapshot(db).gz, secret) };
+  backupState.lastServedAt = new Date(now).toISOString();
+  return served.blob;
+}
+export const resetServedBackup = () => void (served = undefined);
 
 /** Guarda una copia comprimida y reducida de la base de datos. Si lo importante no ha cambiado desde la última, no envía nada. */
 export async function saveSnapshot(db: Db, c: RemoteConfig | undefined = remoteConfig()): Promise<boolean> {

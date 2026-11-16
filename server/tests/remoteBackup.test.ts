@@ -73,3 +73,72 @@ describe('copia remota de la base de datos', () => {
     expect(await saveSnapshot(openDb(path.join(dir, 'f.sqlite')), undefined)).toBe(false);
   });
 });
+
+import zlib from 'node:zlib';
+import { openBackup, sealBackup } from '../src/backupCrypto';
+import { backupState, essentialSnapshot, resetServedBackup, servedBackup } from '../src/remoteBackup';
+
+describe('copia cifrada en GitHub (sin pagar a nadie)', () => {
+  it('cifra y descifra; el mismo contenido da el mismo archivo; con otra clave falla', () => {
+    const plain = Buffer.from('suscriptores y consentimientos');
+    const a = sealBackup(plain, 'clave-secreta-larga');
+    expect(a.subarray(0, 4).toString()).toBe('CUB1');
+    expect(a.includes(plain)).toBe(false);
+    expect(sealBackup(plain, 'clave-secreta-larga').equals(a)).toBe(true);
+    expect(openBackup(a, 'clave-secreta-larga').equals(plain)).toBe(true);
+    expect(() => openBackup(a, 'otra-clave')).toThrow();
+    expect(() => openBackup(Buffer.from('basura'), 'clave-secreta-larga')).toThrow();
+  });
+
+  const mkDb = () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-'));
+    const db = openDb(path.join(dir, 'a.sqlite'));
+    db.prepare("insert into players(name, name_norm, created_at, updated_at) values('Ana Prueba','ana prueba','x','x')").run();
+    db.prepare("insert into subscribers(email, created_at, confirmed_at) values('a@b.es','x','y')").run();
+    return { dir, db };
+  };
+
+  it('el servidor sirve la copia cifrada y, en un disco vacío, se restaura desde GitHub con todos sus datos', async () => {
+    resetServedBackup();
+    const { dir, db } = mkDb();
+    const blob = servedBackup(db, 'clave-secreta-larga')!;
+    expect(blob).toBeDefined();
+    expect(blob.includes(Buffer.from('a@b.es'))).toBe(false); // el correo no aparece en claro
+
+    const restored = path.join(dir, 'nuevo', 'club.sqlite');
+    const fetchImpl = (async () => new Response(new Uint8Array(blob))) as typeof fetch;
+    expect(await restoreIfMissing(restored, undefined, { url: 'https://raw.test/club.bin', secret: 'clave-secreta-larga', fetchImpl })).toBe(true);
+    expect(backupState.restoredFrom).toBe('github');
+    const db2 = openDb(restored);
+    expect(db2.prepare('select email from subscribers').get()).toEqual({ email: 'a@b.es' });
+    expect(db2.prepare('select name from players').get()).toEqual({ name: 'Ana Prueba' });
+  });
+
+  it('sin copia en GitHub (404) no falla; con una copia ilegible se bloquea la publicación de copias nuevas', async () => {
+    resetServedBackup();
+    backupState.restoreFailed = false;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-'));
+    const f404 = (async () => new Response('no', { status: 404 })) as typeof fetch;
+    expect(await restoreIfMissing(path.join(dir, 'a', 'club.sqlite'), undefined, { url: 'https://raw.test/x', secret: 's', fetchImpl: f404 })).toBe(false);
+    expect(backupState.restoreFailed).toBeFalsy();
+
+    const bad = (async () => new Response('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')) as typeof fetch;
+    expect(await restoreIfMissing(path.join(dir, 'b', 'club.sqlite'), undefined, { url: 'https://raw.test/x', secret: 's', fetchImpl: bad })).toBe(false);
+    expect(backupState.restoreFailed).toBe(true);
+    const { db } = mkDb();
+    expect(servedBackup(db, 's')).toBeUndefined(); // no se pisa la copia buena con una base vacía
+    backupState.restoreFailed = false;
+  });
+
+  it('la copia no cambia (mismo archivo) mientras no cambie nada importante', () => {
+    resetServedBackup();
+    const { db } = mkDb();
+    kvSet(db, 'ok:day:g:1', { at: 'a' });
+    const a = sealBackup(essentialSnapshot(db).gz, 'k');
+    kvSet(db, 'ok:day:g:1', { at: 'b' });
+    expect(sealBackup(essentialSnapshot(db).gz, 'k').equals(a)).toBe(true);
+    db.prepare("insert into subscribers(email, created_at) values('c@d.es','x')").run();
+    expect(sealBackup(essentialSnapshot(db).gz, 'k').equals(a)).toBe(false);
+    expect(zlib.gunzipSync(essentialSnapshot(db).gz).length).toBeGreaterThan(0);
+  });
+});

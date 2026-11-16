@@ -20,7 +20,7 @@ import { cardVersion, findCard, metaOf, renderPng, shareHtmlPage, type CardKind,
 import { rivalNamesFor } from './shareRivals';
 import { decide, draftFor } from './chronicle';
 import { buildSocial } from './social';
-import { backupState } from './remoteBackup';
+import { backupState, servedBackup } from './remoteBackup';
 import { buildLiga, type LigaSnapshot } from './liga';
 import { buildOverview } from './adminView';
 import { importPlayersCsv } from './importCsv';
@@ -196,6 +196,15 @@ export function createApp(db: Db, engine: SyncEngine | undefined, hub: Hub, mail
         }
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'X-Content-Type-Options': 'nosniff', ...headers });
         return res.end(c.body);
+      }
+
+      // Copia cifrada de lo imprescindible (la recoge el workflow «Copia de seguridad» de GitHub Actions y la guarda en la rama backup-data).
+      if (route === 'GET /api/public/backup') {
+        if (limited(req)) throw new HttpFail(429, 'Demasiadas consultas.');
+        const blob = servedBackup(db, settings.adminToken);
+        if (!blob) throw new HttpFail(404, 'Copia no disponible.');
+        res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...cors(req) });
+        return res.end(blob);
       }
 
       if (route === 'GET /api/public/news') {

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { createApp, Hub } from './api';
 import { settings } from './config';
 import { openDb } from './db';
-import { remoteConfig, restoreIfMissing, saveSnapshot } from './remoteBackup';
+import { backupState, remoteConfig, restoreIfMissing, saveSnapshot } from './remoteBackup';
 import { importPlayersCsv } from './importCsv';
 import { listPlayers } from './roster';
 import { SyncEngine } from './engine';
@@ -36,7 +36,7 @@ const server = http.createServer((req, res) => handler(req, res));
 server.listen(settings.port, () => console.log(`Servidor del club en http://localhost:${settings.port}`));
 
 const dbFile = path.join(settings.dataDir, 'club.sqlite');
-if (await restoreIfMissing(dbFile)) console.log('Base de datos restaurada desde la copia remota (Upstash).');
+if (await restoreIfMissing(dbFile)) console.log(`Base de datos restaurada desde la copia de ${backupState.restoredFrom === 'github' ? 'GitHub' : 'Upstash'}.`);
 const db = openDb(dbFile);
 if (purgeGhostEra(db, new Date())) console.log('Estimaciones anteriores a la retirada de partidos fantasma descartadas (no se aprende de ellas).');
 

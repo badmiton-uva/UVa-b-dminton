@@ -20,7 +20,7 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     env:
-      SERVER_URL: ${{ vars.VITE_API_URL || 'https://club-uva-badminton.onrender.com' }}
+      SERVER_URL: https://club-uva-badminton-nayc.onrender.com
     steps:
       - name: Descargar la copia cifrada del servidor
         run: |

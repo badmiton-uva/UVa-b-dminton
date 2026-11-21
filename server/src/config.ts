@@ -110,7 +110,7 @@ export const settings = {
   itinerary: {
     email: process.env.ITINERARY_EMAIL === 'off' ? '' : process.env.ITINERARY_EMAIL ?? 'pablitocastaneda06@gmail.com',
     minutesBefore: num(process.env.ITINERARY_MINUTES_BEFORE, 15),
-    baseUrl: (process.env.PUBLIC_BASE_URL ?? process.env.RENDER_EXTERNAL_URL ?? 'https://club-uva-badminton.onrender.com').replace(/\/$/, ''),
+    baseUrl: (process.env.PUBLIC_BASE_URL ?? process.env.RENDER_EXTERNAL_URL ?? 'https://club-uva-badminton-nayc.onrender.com').replace(/\/$/, ''),
   },
   /** Previa del finde por correo: cada jueves a las 15:00 (Madrid) se envía quién juega y a qué hora son los primeros partidos de la UVa en los torneos que empiezan en los próximos días. `WEEKEND_PREVIEW_EMAIL=off` lo desactiva. */
   weekendPreview: {

@@ -259,3 +259,8 @@ badminton.es no avisa cuando publica algo, así que el servidor lo detecta con l
   3. Al arrancar con el disco vacío, el servidor restaura `club.bin` desde `raw.githubusercontent.com/badmiton-uva/UVa-b-dminton/backup-data/club.bin` (`BACKUP_URL`; «off» lo desactiva) y, si no hay, desde Upstash.
 - Seguridad: el repositorio es público, pero el contenido va cifrado (los correos no aparecen en claro); quien tenga `ADMIN_TOKEN` puede descifrarlo, así que debe ser largo y secreto. Si una restauración falla (copia ilegible), el servidor deja de ofrecer copias nuevas hasta reiniciar, para no pisar la buena con una base vacía.
 - Límite: se pueden perder los cambios de los últimos ≤30 min antes de un reinicio.
+
+## 21/11/2026 · Servidor en la cuenta nueva de Render
+- El servicio antiguo (`club-uva-badminton.onrender.com`, cuenta anterior) quedó **suspendido** (503). El servicio vive ahora en la cuenta nueva: `https://club-uva-badminton-nayc.onrender.com`.
+- Al arrancar se restauró solo desde la rama `backup-data` de GitHub (copia cifrada, ver 16/11): `backup.restoredFrom = github`. Es la primera restauración real de esa copia.
+- La dirección está fija en `pages.yml` (`VITE_API_URL`) y en `backup.yml` (ya no depende de la variable del repositorio). Pendiente fuera del código: apuntar el aviso de cron-job.org a la dirección nueva.
